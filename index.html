@@ -288,6 +288,24 @@ function hash(n){n=Math.sin(n*127.1)*43758.5453;return n-Math.floor(n);}
 function spr(c,rows,pal,x,y,flip){x=Math.round(x);y=Math.round(y);
   for(let r=0;r<rows.length;r++){const row=rows[r];for(let i=0;i<row.length;i++){const ch=row[i];if(ch==='.'||!pal[ch])continue;
     c.fillStyle=pal[ch];c.fillRect(x+(flip?row.length-1-i:i),y+r,1,1);}}}
+function shade(hex,f){const n=parseInt(hex.slice(1,7),16);let r=n>>16,g=n>>8&255,b=n&255;
+  if(f<0){r*=1+f;g*=1+f;b*=1+f;}else{r+=(255-r)*f;g+=(255-g)*f;b+=(255-b)*f;}
+  return '#'+[r,g,b].map(v=>Math.round(v).toString(16).padStart(2,'0')).join('');}
+/* characters are pre-rendered once per palette/pose: dark outline, light from the upper left, optional blink */
+const SPR_CACHE=new WeakMap();
+function sprChar(c,rows,pal,x,y,flip,blink){
+  let byPal=SPR_CACHE.get(pal);if(!byPal){byPal=new Map();SPR_CACHE.set(pal,byPal);}
+  const key=rows.join('/')+(flip?'F':'')+(blink?'B':'');let cv=byPal.get(key);
+  if(!cv){const h=rows.length,w=rows[0].length;cv=document.createElement('canvas');cv.width=w+2;cv.height=h+2;const g=cv.getContext('2d');
+    const at=(i,r)=>{const row=rows[r];if(!row)return null;const ch=row[flip?w-1-i:i];return ch&&ch!=='.'&&pal[ch]?ch:null;};
+    for(let r=-1;r<=h;r++)for(let i=-1;i<=w;i++){const ch=at(i,r);
+      if(!ch){if(at(i-1,r)||at(i+1,r)||at(i,r-1)||at(i,r+1)){g.fillStyle='#1b1426';g.fillRect(i+1,r+1,1,1);}continue;}
+      let col=pal[blink&&ch==='e'?'s':ch];
+      if(blink&&ch==='e')col=shade(pal.s||col,-.12);
+      else if(col.length===7&&ch!=='e'){if(!at(i+1,r)&&at(i-1,r))col=shade(col,-.22);else if(!at(i,r-1)||(at(i,r-1)!==ch&&(ch==='h'||ch==='w'||ch==='k')&&i<w/2))col=shade(col,.14);}
+      g.fillStyle=col;g.fillRect(i+1,r+1,1,1);}
+    byPal.set(key,cv);}
+  c.drawImage(cv,Math.round(x)-1,Math.round(y)-1);}
 function R(c,x,y,w,h,col){c.fillStyle=col;c.fillRect(Math.round(x),Math.round(y),w,h);}
 function disc(c,cx,cy,r,col){c.fillStyle=col;for(let y=-r;y<=r;y++)for(let x=-r;x<=r;x++)if(x*x+y*y<=r*r)c.fillRect(Math.round(cx+x),Math.round(cy+y),1,1);}
 const DIG={0:'111101101101111',1:'010110010010111',2:'111001111100111',3:'111001111001111',4:'101101111001001',5:'111100111001111',6:'111100111101111',7:'111001001001001',8:'111101111101111',9:'111101111001111'};
@@ -327,7 +345,7 @@ const UP=DOWN.slice(0,3).concat([".hhhhhhhhhh.",".hhhhhhhhhh.",".hhhhhhhhhh.",".
 const UP_W=UP.slice(0,15).concat(DOWN_W.slice(15));
 const SIDE=["...hhhhhh...","..hhhhhhhh..",".hhhhhhhhhh.",".hhhhhsssss.",".hhhhsssess.",".hhhhssssss.","..hhhsssms..","....ssss....","...wwwwbw...","...wwwwbww..","...wwwwwww..","...wwswwww..","...wwswwww..","...kkkkkk...","...kkkkkk...","....sss.....","....sss.....","....ddd....."];
 const SIDE_W=SIDE.slice(0,15).concat(["...ss..s....","..ss....s...","..dd....dd.."]);
-const CHILD=r=>r.filter((_,i)=>i!==12&&i!==14&&i!==16);
+const CHILD_M=new Map(),CHILD=r=>{let v=CHILD_M.get(r);if(!v){v=r.filter((_,i)=>i!==12&&i!==14&&i!==16);CHILD_M.set(r,v);}return v;};
 const POSE={down:[DOWN,DOWN_W],up:[UP,UP_W],side:[SIDE,SIDE_W]};
 function pedLight(t){const p=t%26;return p<13?{green:true,left:13-Math.floor(p)}:{green:false,left:26-Math.floor(p)};}
 const PAL={
@@ -346,8 +364,9 @@ const PAL={
 };
 function drawChar(c,pal,x,y,dir,moving,frame,child){
   const set=POSE[dir==='left'||dir==='right'?'side':dir];let rows=moving&&frame?set[1]:set[0];if(child)rows=CHILD(rows);
-  R(c,x-4,y-1,9,2,'rgba(20,10,30,.28)');
-  spr(c,rows,pal,x-6,y-rows.length,dir==='left');
+  R(c,x-4,y-2,9,1,'rgba(20,10,30,.18)');R(c,x-6,y-1,13,1,'rgba(20,10,30,.24)');R(c,x-4,y,9,1,'rgba(20,10,30,.18)');
+  const blink=!moving&&((TT*.6+x*.037)%3.2)<.13;
+  sprChar(c,rows,pal,x-6,y-rows.length,dir==='left',blink);
 }
 const LUMI=["....a.....","....a.....","..wwwwww..",".wwwwwwww.",".wkkkkkkw.",".wkckkckw.",".wkkkkkkw.",".wwwwwwww.","..wwwwww..","...w..w..."];
 const PAL_LUMI={a:'#ffd34d',w:'#f4f6ff',k:'#1d2244',c:'#7fe8ff'};
@@ -411,9 +430,19 @@ function loadMap(m,sx,sy,dir){
   M=m;objs=[];P.x=sx;P.y=sy;P.vx=P.vy=0;P.dir=dir||'up';lumi.x=sx+10;lumi.y=sy-30;target=null;
   $('#hudPlace').textContent=m.name;$('#hudTime').textContent=m.time;setTicker(m.ticker);
   if(!m.layer){const w=m.rows[0].length*T,h=m.rows.length*T,cv2=document.createElement('canvas');cv2.width=w;cv2.height=h;const c2=cv2.getContext('2d');
-    for(let ty=0;ty<m.rows.length;ty++)for(let tx=0;tx<m.rows[ty].length;tx++)drawTile(c2,m,m.rows[ty][tx],tx,ty,tx*T,ty*T);m.layer=cv2;}
+    for(let ty=0;ty<m.rows.length;ty++)for(let tx=0;tx<m.rows[ty].length;tx++)drawTile(c2,m,m.rows[ty][tx],tx,ty,tx*T,ty*T);polishLayer(m,c2);m.layer=cv2;}
   if(m===HOME)buildHome();else if(m===STREET)buildStreet();else if(m===STATION)buildStation();else if(m===LEO_ROOM)buildLeoRoom();else if(m===DC)buildDC();else if(m===BEACH)buildBeach();else if(m===PALACE)buildPalace();else if(m===BALCONY)buildBalcony();else if(m===NEWWORLD)buildNew();else if(m===FACTORY)buildFactory();else if(m===BACKSTAGE)buildBackstage();else if(m===CONTROL)buildControl();else if(m===GOLD)buildGold();else if(m===LAB)buildLab();else if(m===TUNNEL){buildTunnel();if(S.char==='ivy'){buildTunnelIvy();objs.find(o=>o.id==='table').act=actPledgeIvy;}}else if(m===PLANT)buildPlant();else buildTier2();
 }
+/* soft shadows where floor meets wall, plus a little grain so big floors are not flat */
+function polishLayer(m,c){const W='#x',sol=m.solid||'';
+  for(let ty=0;ty<m.rows.length;ty++)for(let tx=0;tx<m.rows[ty].length;tx++){const ch=m.rows[ty][tx];if(sol.includes(ch))continue;const x=tx*T,y=ty*T;
+    for(let k=0;k<5;k++){const hx=hash(tx*131+ty*71+k*17),hy=hash(tx*37+ty*113+k*29);c.fillStyle=k%2?'rgba(255,255,255,.07)':'rgba(20,10,30,.06)';c.fillRect(x+Math.floor(hx*T),y+Math.floor(hy*T),1,1);}
+    if(W.includes(tileAt(m,tx,ty-1)))[.24,.15,.09,.04].forEach((a,i)=>{c.fillStyle=`rgba(20,10,30,${a})`;c.fillRect(x,y+i,T,1);});
+    if(W.includes(tileAt(m,tx-1,ty)))[.14,.06].forEach((a,i)=>{c.fillStyle=`rgba(20,10,30,${a})`;c.fillRect(x+i,y,1,T);});
+    if(W.includes(tileAt(m,tx+1,ty)))[.14,.06].forEach((a,i)=>{c.fillStyle=`rgba(20,10,30,${a})`;c.fillRect(x+T-1-i,y,1,T);});}}
+let VIG=null;
+function vignette(){if(VIG)return VIG;VIG=document.createElement('canvas');VIG.width=VW;VIG.height=VH;const g=VIG.getContext('2d');
+  const gr=g.createRadialGradient(VW/2,VH/2,VH*.32,VW/2,VH/2,VH*.75);gr.addColorStop(0,'rgba(14,10,28,0)');gr.addColorStop(1,'rgba(14,10,28,.34)');g.fillStyle=gr;g.fillRect(0,0,VW,VH);return VIG;}
 function solidAt(px,py){
   const tx=Math.floor(px/T),ty=Math.floor(py/T);if(M.solid.includes(tileAt(M,tx,ty)))return true;
   for(const o of objs){if(!o.solid)continue;const r=o.rect?o.rect():{x:o.x,y:o.y,w:o.w,h:o.h};if(px>=r.x&&px<r.x+r.w&&py>=r.y&&py<r.y+r.h)return true;}
@@ -684,14 +713,17 @@ function render(){
   const key=o=>o.isNpc?o.y:o.y+o.h;
   const list=objs.slice().sort((a,b)=>(a.z<0||b.z<0)?(a.z-b.z)||(key(a)-key(b)):(key(a)-key(b)));
   let drawnP=false;
-  for(const o of list){if(!drawnP&&o.z>=0&&key(o)>P.y){drawPlayer(c);drawnP=true;}o.draw(c,TT);}
+  for(const o of list){if(!drawnP&&o.z>=0&&key(o)>P.y){drawPlayer(c);drawnP=true;}
+    if(o._sh===undefined)o._sh=!!(o.solid&&!o.isNpc&&o.z>=0&&o.w>=T&&o.draw.toString().replace(/\s/g,'')!=='draw(){}');
+    if(o._sh){R(c,o.x+2,o.y+o.h,o.w-1,1,'rgba(20,10,30,.2)');R(c,o.x+3,o.y+o.h+1,o.w-3,1,'rgba(20,10,30,.1)');}
+    o.draw(c,TT);}
   if(!drawnP)drawPlayer(c);
   if(S.lumi)drawLumi(c);
   if(S.cop){const k=S.cop,x=Math.round(k.x),y=Math.round(k.y+Math.sin(TT*8)*1.5),f=Math.floor(TT*8)%2;R(c,x-6,y,12,5,'#f4f6ff');R(c,x-6,y+5,12,1,'#9aa0b8');R(c,x-9,y-1,4,1,'#5a6070');R(c,x+5,y-1,4,1,'#5a6070');R(c,x-5,y+1,4,2,f?'#ff3a4a':'#3a7aff');R(c,x+1,y+1,4,2,f?'#3a7aff':'#ff3a4a');R(c,x-1,y+6,2,2,'#1d2244');}
   if(!busy)for(const o of objs){if(o.mark&&!o.seen){const ox=o.ix?o.ix():o.x+o.w/2;let oy;if(o.isNpc)oy=o.y-(o.child?28:31);else oy=Math.min(o.y,(o.iy?o.iy():o.y+o.h)-24)-12;bang(c,Math.round(ox),Math.round(oy+Math.sin(TT*4)),'#ffd34d');}}
   c.setTransform(1,0,0,1,0,0);
   drawGoalArrow(c,cx,cy);
-  if(cineLight){c.fillStyle='rgba(8,6,24,.45)';c.fillRect(0,0,VW,VH);}else{c.fillStyle=M.tint;c.fillRect(0,0,VW,VH);}
+  if(cineLight){c.fillStyle='rgba(8,6,24,.45)';c.fillRect(0,0,VW,VH);}else{c.fillStyle=M.tint;c.fillRect(0,0,VW,VH);c.drawImage(vignette(),0,0);}
   if(M===STREET){c.fillStyle='rgba(255,230,190,.3)';for(let k=0;k<8;k++)c.fillRect(Math.floor(hash(k+Math.floor(TT*6))*VW),Math.floor(hash(k*3)*VH),3,1);}
 }
 /* uploaded minds have no body: a pulsing light whose colour and brightness follow the compute tier */
