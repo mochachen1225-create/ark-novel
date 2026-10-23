@@ -109,6 +109,7 @@ button.small{font-size:14px;padding:6px 10px;margin:3px 3px 6px}
 #cine .nm{font-size:13px;color:var(--dim);letter-spacing:.08em}
 #cine .line{font-family:var(--f-prose);font-weight:700;font-size:20px;line-height:1.7;min-height:5.1em;max-width:22em}
 #cine .more{font-size:13px;color:var(--dim)}
+#cSkip{position:absolute;top:12px;right:12px}
 
 /* phone overlay */
 #phoneWrap{position:absolute;inset:0;z-index:7;background:rgba(8,6,20,.75);display:flex;justify-content:center;align-items:stretch;padding:6px 10px}
@@ -226,11 +227,11 @@ button.crow:active{transform:none;background:#221b3b;box-shadow:none}
   <section class="screen" id="s-game" hidden>
     <div class="hud"><span id="hudPlace">家</span><span class="hudr"><span class="time" id="hudTime">08:12</span><button class="small ghost" id="glossBtn" hidden>圖鑑</button><button class="small ghost" id="sndBtn">♪ 開</button><button class="small ghost speed">▶▶ 1x</button><button class="small ghost" id="quitBtn" aria-label="離開遊戲">✕</button></span></div>
     <div id="stage">
-      <canvas id="cv" class="pix" width="176" height="208" aria-label="遊戲畫面"></canvas>
+      <canvas id="cv" class="pix" width="352" height="416" aria-label="遊戲畫面"></canvas>
       <div id="ticker" hidden><span id="tickText"></span></div>
       <div id="joy" hidden><div id="knob"></div></div>
       <div class="dlg" id="dlg" hidden><div class="dhead"><canvas id="dFace" class="pix" width="12" height="12" hidden></canvas><span class="who" id="dWho"></span></div><div class="txt" id="dTxt"></div><div class="ch" id="dCh"></div><div class="more" id="dMore">點一下繼續 ▼</div></div>
-      <div id="cine" hidden><div class="nm">Adrian Vale｜Helios 創辦人</div><canvas id="cPic" class="pix" width="16" height="18"></canvas><div class="line" id="cLine"></div><div class="more">點一下繼續 ▼</div></div>
+      <div id="cine" hidden><div class="nm">Adrian Vale｜Helios 創辦人</div><canvas id="cPic" class="pix" width="16" height="18"></canvas><div class="line" id="cLine"></div><div class="more">點一下繼續 ▼</div><button class="small ghost" id="cSkip">跳過 ▶▶</button></div>
       <div id="phoneWrap" hidden>
         <div class="phone">
           <div class="status"><span id="pTime">08:45</span><span>5G ▮▮▮ 23%</span></div>
@@ -362,14 +363,113 @@ const PAL={
   boss:{h:'#4a4a52',s:'#e6bc98',e:'#1a1420',m:'#8a4a4a',w:'#5a6a8a',b:'#ffd34d',c:'#fff',k:'#2a2e40',d:'#111'},
   aunt:{h:'#5a3a5a',s:'#ecc8ac',e:'#1a1420',m:'#b55a5a',w:'#e8b84a',b:'#e8b84a',c:'#fff',k:'#6a5a4a',d:'#3a2a20'}
 };
+/* ---------- characters: 32×32 sprites built from parts, lit from the upper left ----------
+   Drawn at half a world pixel (the canvas runs at 2× the world grid), cached per palette/pose/frame.
+   Run cycle: 1 起跑 → 2 踏步 → 3 懸空 → 4 落地; frame 0 is standing. */
+const RUN_BOB=[0,0,1,-1,1],RUN_SW=[0,1,0,-1,-1],SWAY=[0,0,1,1,-1];
+const RUN_LEGS_D=[[0,0],[0,2],[0,0],[1,1],[2,0]];                                   // [left lift, right lift]
+const RUN_LEGS_S=[[[0,0],[0,0]],[[-3,1],[3,0]],[[0,2],[0,0]],[[2,1],[-2,2]],[[3,0],[-3,1]]]; // [dx,lift] back leg, front leg
+function mix(a,b,t){const p=h=>{const n=parseInt(h.slice(1,7),16);return[n>>16,n>>8&255,n&255];},x=p(a),y=p(b);return '#'+x.map((v,i)=>Math.round(v+(y[i]-v)*t).toString(16).padStart(2,'0')).join('');}
+const C32=new WeakMap();
+function buildChar(pal,dir,f,blink,child){
+  const N=32,G=new Array(N*N).fill(null),side=dir==='left'||dir==='right',up=dir==='up';
+  const put=(x,y,col,part,flat)=>{x=Math.round(x);y=Math.round(y);if(x<0||y<0||x>=N||y>=N||!col)return;G[y*N+x]={col,part,flat};};
+  const rect=(x,y,w,h,col,part,flat)=>{for(let j=0;j<h;j++)for(let i=0;i<w;i++)put(x+i,y+j,col,part,flat);};
+  const ell=(cx,cy,rx,ry,col,part,clip)=>{for(let y=Math.floor(cy-ry);y<=Math.ceil(cy+ry);y++)for(let x=Math.floor(cx-rx);x<=Math.ceil(cx+rx);x++){const dx=(x+.5-cx)/rx,dy=(y+.5-cy)/ry;if(dx*dx+dy*dy<=1&&(!clip||clip(x,y)))put(x,y,col,part);}};
+  const b=RUN_BOB[f],sw=RUN_SW[f],sway=SWAY[f],acc=pal.acc||'',hs=pal.hs||'short',coat=acc==='coat';
+  const H=pal.hc||pal.h,Sk=pal.s,W=pal.w,K=pal.k,D=pal.d,blush=mix(Sk,'#ff6a7a',.3),frame='#2a2a3a',PACK='#e8a03c';
+  const hairCap=(cy)=>ell(16,cy+b,7.4,6,H,'hair',(x,y)=>y<=8+b);
+  if(!side){
+    // capes and backpacks hang behind
+    if(acc==='cape'){if(up){rect(8,15+b,16,13,pal.c,'cape');rect(8+(sway>0?1:0),28+b,16-(sway?1:0),1,pal.c,'cape');}else{rect(7,15+b,2,13+(sway<0?1:0),pal.c,'cape');rect(23,15+b,2,13+(sway>0?1:0),pal.c,'cape');}}
+    const L=RUN_LEGS_D[f];
+    [[11,up?L[1]:L[0]],[17,up?L[0]:L[1]]].forEach(([lx,lift])=>{rect(lx,25+b,4,Math.max(1,5-lift-b),K,'leg'+lx);rect(lx,30-lift,4,2,D,'shoe'+lx);});
+    rect(10,23+b,12,3,K,'hip');
+    rect(10,15+b,12,1,W,'torso');rect(9,16+b,14,7,W,'torso');
+    if(coat){rect(9,23+b,14,5,W,'torso');put(9+(sway<0?-1:0),27+b,W,'torso');put(22+(sway>0?1:0),27+b,W,'torso');if(!up){rect(14,15+b,4,8,pal.b,'inner');rect(15,23+b,2,5,K,'hip');}}
+    if(!up&&!coat){rect(13,15+b,6,1,pal.c,'collar');if(pal.b!==W)rect(15,16+b,2,6,pal.b,'tie');}
+    if(acc==='turtle')rect(13,13+b,6,3,W,'torso');
+    const s1=up?-sw:sw;
+    rect(7,16+b+s1,2,7,W,'armL');rect(7,23+b+s1,2,2,Sk,'handL');
+    rect(23,16+b-s1,2,7,W,'armR');rect(23,23+b-s1,2,2,Sk,'handR');
+    if(acc==='pack'){if(up){rect(9,15+b,14,10,PACK,'pack');rect(9,19+b,14,1,mix(PACK,'#000',.25),'pack',1);rect(14,21+b,4,2,'#fff6d8','pack',1);}else{rect(11,15+b,1,8,D,'strap',1);rect(20,15+b,1,8,D,'strap',1);}}
+    if(acc==='badge'&&!up){put(13,16+b,pal.b,'lan',1);put(14,17+b,pal.b,'lan',1);put(18,16+b,pal.b,'lan',1);put(17,17+b,pal.b,'lan',1);rect(14,18+b,4,4,'#f4f6ff','card');rect(14,18+b,4,1,pal.b,'card',1);}
+    if(acc==='cape'){rect(9,15+b,2,1,pal.b,'ep',1);rect(21,15+b,2,1,pal.b,'ep',1);if(!up){put(11,18+b,pal.b,'med',1);put(12,18+b,pal.c,'med',1);put(11,19+b,pal.c,'med',1);put(12,19+b,pal.b,'med',1);}}
+    rect(14,13+b,4,2,Sk,'head');ell(16,8.5+b,6.6,6.2,Sk,'head');
+    if(up&&hs==='bald'){rect(9,7+b,14,6,H,'hair');put(9,10+b,Sk,'ear');put(22,10+b,Sk,'ear');}
+    else if(up){ell(16,8.5+b,6.9,6.5,H,'hair');put(9,10+b,Sk,'ear');put(22,10+b,Sk,'ear');}
+    else if(hs==='bald'){rect(9,7+b,2,5,H,'hair');rect(21,7+b,2,5,H,'hair');put(12,3+b,H,'hair');put(18,3+b,H,'hair');}
+    else if(hs==='mil'){rect(9,7+b,2,4,H,'hair');rect(21,7+b,2,4,H,'hair');}
+    else{hairCap(7.5);for(let x=10;x<=21;x++)if(x%3!==1)put(x,9+b,H,'hair');rect(9,9+b,2,3,H,'hair');rect(21,9+b,2,3,H,'hair');}
+    if(hs==='long'){rect(8,9+b,3,11+(sway>0?1:0),H,'hair');rect(21,9+b,3,11+(sway<0?1:0),H,'hair');if(up)rect(9,13+b,14,7+(sway?1:0),H,'hair');}
+    if(hs==='bun')ell(16,2.2+b,2.6,2.2,H,'bun');
+    if(hs==='pig'){ell(6.5+(sway<0?-1:0),11+b,2,2.6,H,'pigL');ell(25.5+(sway>0?1:0),11+b,2,2.6,H,'pigR');}
+    if(hs==='cap'){const cp=pal.b;ell(16,6.5+b,7.6,5,cp,'cap',(x,y)=>y<=6+b);if(!up)rect(8,7+b,16,1,mix(cp,'#000',.3),'brim');put(16,3+b,'#ffffff','cap',1);}
+    if(hs==='mil'){ell(16,4.5+b,8.4,4.2,W,'cap',(x,y)=>y<=5+b);rect(8,5+b,16,1,pal.c,'band');if(!up){rect(9,6+b,14,1,D,'brim');put(15,3+b,pal.b,'cap',1);put(16,3+b,pal.b,'cap',1);}}
+    if(!up){
+      if(blink){rect(12,10+b,2,1,mix(Sk,'#000',.45),'f',1);rect(18,10+b,2,1,mix(Sk,'#000',.45),'f',1);}
+      else{rect(12,9+b,2,2,pal.e,'f',1);rect(18,9+b,2,2,pal.e,'f',1);put(12,9+b,'#ffffff','f',1);put(18,9+b,'#ffffff','f',1);}
+      if(pal.gl){for(const gx of [11,17]){rect(gx,8+b,4,1,frame,'f',1);rect(gx,11+b,4,1,frame,'f',1);put(gx,9+b,frame,'f',1);put(gx,10+b,frame,'f',1);put(gx+3,9+b,frame,'f',1);put(gx+3,10+b,frame,'f',1);}}
+      put(11,11+b,blush,'f',1);put(20,11+b,blush,'f',1);rect(15,12+b,2,1,pal.m,'f',1);
+    }
+  }else{
+    const LS=RUN_LEGS_S[f];
+    if(acc==='cape')rect(9-(f?1:0)-(sway>0?1:0),15+b,4,13+(f?0:0)-(sway<0?1:0),pal.c,'cape');
+    if(acc==='pack'){rect(7,15+b,5,9,PACK,'pack');rect(7,19+b,5,1,mix(PACK,'#000',.25),'pack',1);}
+    LS.forEach(([dx,lift],i)=>{const kc=i?K:mix(K,'#000',.22),dc=i?D:mix(D,'#000',.22);rect(14+dx,25+b,3,Math.max(1,5-lift-b),kc,'leg'+i);rect(14+dx,30-lift,4,2,dc,'shoe'+i);});
+    rect(12,23+b,8,3,K,'hip');
+    rect(15-sw*2,16+b,2,7,mix(W,'#000',.2),'armB');rect(15-sw*2,23+b,2,2,mix(Sk,'#000',.15),'handB');
+    rect(13,15+b,6,1,W,'torso');rect(12,16+b,8,7,W,'torso');
+    if(coat){rect(11,23+b,9,5,W,'torso');put(10-(sway>0?1:0),27+b,W,'torso');rect(18,15+b,2,8,pal.b,'inner');}
+    if(acc==='turtle')rect(14,13+b,5,3,W,'torso');
+    if(acc==='badge'){put(19,16+b,pal.b,'lan',1);rect(18,18+b,2,3,'#f4f6ff','card');}
+    if(acc==='cape'){rect(14,15+b,3,1,pal.b,'ep',1);put(19,18+b,pal.b,'med',1);put(19,19+b,pal.c,'med',1);}
+    if(acc==='pack')rect(13,15+b,1,8,D,'strap',1);
+    rect(15,13+b,3,2,Sk,'head');ell(16.5,8.5+b,6.3,6.2,Sk,'head');put(23,10+b,Sk,'head');
+    if(hs==='bald'||hs==='mil'){rect(10,7+b,4,5,H,'hair');}
+    else{ell(15.5,7.5+b,6.8,5.8,H,'hair',(x,y)=>y<=7+b||x<=14);for(let x=17;x<=21;x++)if(x%2)put(x,8+b,H,'hair');}
+    if(hs==='long')rect(9-(sway>0?1:0),9+b,5,11,H,'hair');
+    if(hs==='bun')ell(10,4+b,2.5,2.5,H,'bun');
+    if(hs==='pig')ell(8.5-(sway>0?1:0),11+b,2,2.6,H,'pigL');
+    if(hs==='cap'){const cp=pal.b;ell(15.5,6.5+b,7.2,5,cp,'cap',(x,y)=>y<=6+b);rect(18,7+b,7,1,mix(cp,'#000',.3),'brim');}
+    if(hs==='mil'){ell(15.5,4.5+b,8,4.2,W,'cap',(x,y)=>y<=5+b);rect(8,5+b,16,1,pal.c,'band');rect(19,6+b,6,1,D,'brim');put(20,3+b,pal.b,'cap',1);}
+    if(blink)rect(19,10+b,2,1,mix(Sk,'#000',.45),'f',1);else{rect(19,9+b,2,2,pal.e,'f',1);put(19,9+b,'#ffffff','f',1);}
+    if(pal.gl){rect(18,8+b,4,1,frame,'f',1);rect(18,11+b,4,1,frame,'f',1);put(21,9+b,frame,'f',1);put(21,10+b,frame,'f',1);rect(14,9+b,4,1,frame,'f',1);}
+    put(19,11+b,blush,'f',1);put(21,12+b,pal.m,'f',1);
+    rect(15+sw*2,16+b,2,7,W,'armF');rect(15+sw*2,23+b,2,2,Sk,'handF');
+  }
+  // shading: same-hue ramp, light from the upper left
+  const at=(x,y)=>x<0||y<0||x>=N||y>=N?null:G[y*N+x],same=(p,x,y)=>{const q=at(x,y);return q&&q.part===p.part;};
+  const out=new Array(N*N).fill(null);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){const p=G[y*N+x];if(!p)continue;let col=p.col;
+    if(!p.flat){if(!same(p,x+1,y)||!same(p,x,y+1))col=shade(col,-.26);else if(!same(p,x+2,y)||!same(p,x,y+2))col=shade(col,-.11);else if(!same(p,x-1,y)||!same(p,x,y-1))col=shade(col,.18);
+      if((p.part==='hair'||p.part==='cap')&&!up&&x>=10&&x<=14&&same(p,x,y-1)&&!same(p,x,y-2))col=shade(p.col,.38);}
+    out[y*N+x]=col;}
+  let rows=[];for(let y=0;y<N;y++)rows.push(out.slice(y*N,y*N+N));
+  if(child){const drop=new Set([17,19,21,26,28]);rows=rows.filter((_,y)=>!drop.has(y));while(rows.length<N)rows.unshift(new Array(N).fill(null));}
+  const cv=document.createElement('canvas');cv.width=cv.height=N+2;const g=cv.getContext('2d');
+  const px=(x,y)=>x<0||y<0||x>=N||y>=N?null:rows[y][x];
+  for(let y=-1;y<=N;y++)for(let x=-1;x<=N;x++){let col=px(x,y);
+    if(!col){const n=px(x,y+1)||px(x,y-1)||px(x-1,y)||px(x+1,y);if(!n)continue;col=shade(n,-.62);}
+    g.fillStyle=col;g.fillRect(x+1,y+1,1,1);}
+  return cv;}
+function charSprite(pal,dir,f,blink,child){let m=C32.get(pal);if(!m){m=new Map();C32.set(pal,m);}
+  const key=(dir==='left'?'right':dir)+f+(blink?'b':'')+(child?'c':'');let cv=m.get(key);if(!cv){cv=buildChar(pal,dir==='left'?'right':dir,f,blink,child);m.set(key,cv);}return cv;}
 function drawChar(c,pal,x,y,dir,moving,frame,child){
-  const set=POSE[dir==='left'||dir==='right'?'side':dir];let rows=moving&&frame?set[1]:set[0];if(child)rows=CHILD(rows);
+  x=Math.round(x);y=Math.round(y);
   R(c,x-4,y-2,9,1,'rgba(20,10,30,.18)');R(c,x-6,y-1,13,1,'rgba(20,10,30,.24)');R(c,x-4,y,9,1,'rgba(20,10,30,.18)');
-  const blink=!moving&&((TT*.6+x*.037)%3.2)<.13;
-  sprChar(c,rows,pal,x-6,y-rows.length,dir==='left',blink);
+  const f=moving?1+(frame&3):0,blink=!moving&&((TT*.6+x*.037)%3.2)<.13,cv=charSprite(pal,dir,f,blink,child);
+  if(dir==='left'){c.save();c.translate(x,0);c.scale(-1,1);c.drawImage(cv,-8.5,y-16.5,17,17);c.restore();}
+  else c.drawImage(cv,x-8.5,y-16.5,17,17);
 }
 const LUMI=["....a.....","....a.....","..wwwwww..",".wwwwwwww.",".wkkkkkkw.",".wkckkckw.",".wkkkkkkw.",".wwwwwwww.","..wwwwww..","...w..w..."];
 const PAL_LUMI={a:'#ffd34d',w:'#f4f6ff',k:'#1d2244',c:'#7fe8ff'};
+/* interactables wear a soft glowing dot instead of an exclamation mark (drawn at the 2× grid) */
+const DOTS=[0,1].map(big=>{const cv=document.createElement('canvas');cv.width=cv.height=16;const g=cv.getContext('2d');
+  for(let y=0;y<16;y++)for(let x=0;x<16;x++){const d=Math.hypot(x+.5-8,y+.5-8);let col=null;
+    if(d<=2.6)col=d<1.3&&x<8&&y<8?'#fffbe6':'#ffe27a';else if(d<=3.6)col='#ffc93c';else if(d<=4.6)col='rgba(255,201,60,.55)';else if(d<=(big?7.6:6))col=`rgba(255,214,90,${big?.22:.16})`;
+    if(col){g.fillStyle=col;g.fillRect(x,y,1,1);}}return cv;});
+function markDot(c,x,y,t){c.drawImage(DOTS[Math.floor(t*2.2)&1],x-4,y-4,8,8);}
 function bang(c,x,y,col){R(c,x-3,y,7,9,'#0e0a1c');R(c,x-2,y+1,5,7,col);R(c,x-1,y+9,3,1,'#0e0a1c');R(c,x,y+10,1,1,'#0e0a1c');R(c,x,y+2,1,3,'#0e0a1c');R(c,x,y+6,1,1,'#0e0a1c');}
 
 /* ---------- maps ---------- */
@@ -435,6 +535,16 @@ function loadMap(m,sx,sy,dir){
 }
 /* soft shadows where floor meets wall, plus a little grain so big floors are not flat */
 function polishLayer(m,c){const W='#x',sol=m.solid||'';
+  const kind=[STREET,BEACH,TUNNEL,BALCONY].includes(m)?'out':[LAB,GOLD,TIER2,NEWWORLD,BACKSTAGE,CONTROL].includes(m)?'clean':'worn';
+  const px=(x,y,col)=>{c.fillStyle=col;c.fillRect(x,y,1,1);};
+  for(let ty=0;ty<m.rows.length;ty++)for(let tx=0;tx<m.rows[ty].length;tx++){const ch=m.rows[ty][tx],x=tx*T,y=ty*T,r=hash(tx*917+ty*311+m.rows.length*7);
+    if(sol.includes(ch)){if(W.includes(ch)&&kind!=='clean'&&r<.12){let cx=x+3+Math.floor(hash(r*91)*10),cy=y+2;for(let k=0;k<5;k++){px(cx,cy,'rgba(20,10,30,.22)');cy++;cx+=hash(r*13+k)>.5?1:0;}}continue;}
+    if(kind==='clean'){if(r<.06){const sx=x+2+Math.floor(hash(r*7)*10),sy=y+3+Math.floor(hash(r*11)*10);for(let k=0;k<4;k++)px(sx+k,sy+(k>>1),'rgba(20,10,30,.06)');}continue;}
+    if(r<.09){let cx=x+2+Math.floor(hash(r*31)*10),cy=y+2+Math.floor(hash(r*37)*8);for(let k=0;k<6;k++){px(cx,cy,'rgba(20,10,30,.26)');if(k===3)px(cx+1,cy+1,'rgba(20,10,30,.18)');cx+=1;cy+=hash(r*5+k)>.45?1:0;}}
+    else if(r<.2){const n=1+Math.floor(hash(r*3)*3);for(let k=0;k<n;k++){const sx=x+1+Math.floor(hash(r*17+k)*13),sy=y+1+Math.floor(hash(r*19+k)*13);px(sx,sy,'rgba(20,10,30,.3)');px(sx-1,sy,'rgba(255,255,255,.18)');if(k===0)px(sx,sy-1,'rgba(255,255,255,.12)');}}
+    if(kind==='out'&&(W.includes(tileAt(m,tx,ty-1))||W.includes(tileAt(m,tx-1,ty))||W.includes(tileAt(m,tx+1,ty))||r>.93)&&hash(r*71)<.45){
+      const mx=x+Math.floor(hash(r*23)*12),my=y+(W.includes(tileAt(m,tx,ty-1))?0:Math.floor(hash(r*29)*12));
+      [[0,0],[1,0],[2,0],[1,1],[0,1],[3,1],[2,2]].forEach(([a,b2],k)=>{if(hash(r*41+k)<.8)px(mx+a,my+b2,k%3?'rgba(74,128,58,.55)':'rgba(120,170,80,.6)');});}}
   for(let ty=0;ty<m.rows.length;ty++)for(let tx=0;tx<m.rows[ty].length;tx++){const ch=m.rows[ty][tx];if(sol.includes(ch))continue;const x=tx*T,y=ty*T;
     for(let k=0;k<5;k++){const hx=hash(tx*131+ty*71+k*17),hy=hash(tx*37+ty*113+k*29);c.fillStyle=k%2?'rgba(255,255,255,.07)':'rgba(20,10,30,.06)';c.fillRect(x+Math.floor(hx*T),y+Math.floor(hy*T),1,1);}
     if(W.includes(tileAt(m,tx,ty-1)))[.24,.15,.09,.04].forEach((a,i)=>{c.fillStyle=`rgba(20,10,30,${a})`;c.fillRect(x,y+i,T,1);});
@@ -669,9 +779,11 @@ function buildStation(){
 }
 
 /* ---------- loop ---------- */
-const cv=$('#cv'),ctx=cv.getContext('2d');
+const cv=$('#cv'),ctx=cv.getContext('2d');ctx.imageSmoothingEnabled=false;let K=2;
 function fit(){const st=$('#stage').getBoundingClientRect(),d=window.devicePixelRatio||1;
-  const s=Math.max(1,Math.floor(Math.min(st.width*d/VW,st.height*d/VH)));cv.style.width=VW*s/d+'px';cv.style.height=VH*s/d+'px';$('#ticker').style.width=(VW*s/d-6)+'px';}
+  /* the canvas holds exactly K device pixels per world pixel, so tiles stay crisp; 32×32 sprites use K/2 per sprite pixel */
+  const s=Math.max(2,Math.floor(Math.min(st.width*d/VW,st.height*d/VH)));if(s!==K||cv.width!==VW*s){K=s;cv.width=VW*K;cv.height=VH*K;}
+  cv.style.width=VW*K/d+'px';cv.style.height=VH*K/d+'px';$('#ticker').style.width=(VW*K/d-6)+'px';ctx.imageSmoothingEnabled=false;}
 function setTicker(text,red){const tk=$('#ticker'),t=$('#tickText');if(!text){tk.hidden=true;return;}tk.hidden=false;tk.classList.toggle('red',!!red);t.textContent=NM(text);t.style.animation='none';void t.offsetWidth;t.style.animation='';t.style.animationDuration=Math.max(14,text.length*0.28)+'s';}
 addEventListener('resize',()=>{if(!$('#s-game').hidden)fit();});
 function cam(){const mw=M.rows[0].length*T,mh=M.rows.length*T;
@@ -689,7 +801,7 @@ function step(now){
   if(L>0.5&&!busy){const ox=P.x,oy=P.y;moveAxis(P.vx*dt,0);moveAxis(0,P.vy*dt);
     if(target){if(Math.hypot(P.x-ox,P.y-oy)<0.15)stuckT+=dt;else stuckT=0;if(stuckT>.35){const o=target.obj;target=null;stuckT=0;if(o&&near===o)$('#act').click();}}
     if(Math.abs(ix)>Math.abs(iy)*1.25)P.dir=ix>0?'right':'left';else if(Math.abs(iy)>Math.abs(ix)*1.25)P.dir=iy>0?'down':'up';
-    if(P.moving){P.ft+=dt*S.speed;if(P.ft>.15){P.ft=0;P.frame^=1;if(P.frame)sfx.step();}}}
+    if(P.moving){P.ft+=dt*S.speed;if(P.ft>.1){P.ft=0;P.frame=(P.frame+1)&3;if(!(P.frame&1))sfx.step();}}}
   if(!busy)for(const o of objs)if(o.onEnter&&P.x>o.x&&P.x<o.x+o.w&&P.y>o.y&&P.y<o.y+o.h+6){const f=o.onEnter;o.onEnter=null;target=null;f();break;}
   if(M===STREET){const inCross=P.x>4*T-6&&P.x<6*T+6&&P.y>4*T&&P.y<7*T+4,L=pedLight(TT);
     if(inCross&&!F.wasCross&&!L.green&&!busy)jaywalk();
@@ -706,7 +818,7 @@ function step(now){
   render();raf=requestAnimationFrame(step);
 }
 function render(){
-  const c=ctx,[cx,cy]=cam();c.setTransform(1,0,0,1,0,0);R(c,0,0,VW,VH,'#0e0a1c');c.setTransform(1,0,0,1,-cx,-cy);
+  const c=ctx,[cx,cy]=cam();c.setTransform(K,0,0,K,0,0);R(c,0,0,VW,VH,'#0e0a1c');c.setTransform(K,0,0,K,-cx*K,-cy*K);
   c.drawImage(M.layer,0,0);
   if(M===STREET)for(const car of cars){const y=car.lane*T+(car.lane===4?1:2),x=car.x;R(c,x,y+12,28,2,'rgba(0,0,0,.25)');R(c,x,y+4,28,9,car.col);R(c,x+6,y,15,6,car.col);R(c,x+7,y+1,6,4,'#9fd3e0');R(c,x+14,y+1,6,4,'#9fd3e0');R(c,x+3,y+10,5,4,'#1a1420');R(c,x+20,y+10,5,4,'#1a1420');R(c,car.v>0?x+26:x,y+6,2,2,'#fff6c8');}
   if(target){const t=target;R(c,t.x-3,t.y-1,7,1,'rgba(255,211,77,.9)');R(c,t.x,t.y-4,1,7,'rgba(255,211,77,.9)');}
@@ -720,8 +832,8 @@ function render(){
   if(!drawnP)drawPlayer(c);
   if(S.lumi)drawLumi(c);
   if(S.cop){const k=S.cop,x=Math.round(k.x),y=Math.round(k.y+Math.sin(TT*8)*1.5),f=Math.floor(TT*8)%2;R(c,x-6,y,12,5,'#f4f6ff');R(c,x-6,y+5,12,1,'#9aa0b8');R(c,x-9,y-1,4,1,'#5a6070');R(c,x+5,y-1,4,1,'#5a6070');R(c,x-5,y+1,4,2,f?'#ff3a4a':'#3a7aff');R(c,x+1,y+1,4,2,f?'#3a7aff':'#ff3a4a');R(c,x-1,y+6,2,2,'#1d2244');}
-  if(!busy)for(const o of objs){if(o.mark&&!o.seen){const ox=o.ix?o.ix():o.x+o.w/2;let oy;if(o.isNpc)oy=o.y-(o.child?28:31);else oy=Math.min(o.y,(o.iy?o.iy():o.y+o.h)-24)-12;bang(c,Math.round(ox),Math.round(oy+Math.sin(TT*4)),'#ffd34d');}}
-  c.setTransform(1,0,0,1,0,0);
+  if(!busy)for(const o of objs){if(o.mark&&!o.seen){const ox=o.ix?o.ix():o.x+o.w/2;let oy;if(o.isNpc)oy=o.y-(o.child?28:31);else oy=Math.min(o.y,(o.iy?o.iy():o.y+o.h)-24)-12;markDot(c,Math.round(ox),Math.round(oy+5+Math.sin(TT*4)),TT);}}
+  c.setTransform(K,0,0,K,0,0);
   drawGoalArrow(c,cx,cy);
   if(cineLight){c.fillStyle='rgba(8,6,24,.45)';c.fillRect(0,0,VW,VH);}else{c.fillStyle=M.tint;c.fillRect(0,0,VW,VH);c.drawImage(vignette(),0,0);}
   if(M===STREET){c.fillStyle='rgba(255,230,190,.3)';for(let k=0;k<8;k++)c.fillRect(Math.floor(hash(k+Math.floor(TT*6))*VW),Math.floor(hash(k*3)*VH),3,1);}
@@ -799,6 +911,9 @@ function drawFace(who){const f=$('#dFace'),c=f.getContext('2d');c.clearRect(0,0,
   if(who==='Lumi v1'){spr(c,LUMI,PAL_LUMI_OLD,1,1);f.hidden=false;return;}
   if(who==='AI 大人'){spr(c,ALIEN,PAL_ALIEN,1,1);f.hidden=false;return;}
   const k=FACE[who];if(!k){f.hidden=true;return;}spr(c,DOWN.slice(0,11),PAL[k],0,1);f.hidden=false;}
+/* Vale's speech repeats across characters, so it can be skipped */
+let CINE_SKIP=false;
+$('#cSkip').onclick=e=>{e.stopPropagation();CINE_SKIP=true;sfx.ok();const c=$('#cine');c.onclick&&c.onclick();c.onclick&&c.onclick();};
 function fmt(s){s=NM(s);const plain=s.replace(/\{\{(\w+)\|([^}]+)\}\}/g,'$2');const html=s.replace(/\{\{(\w+)\|([^}]+)\}\}/g,(_,k,l)=>{unlock(k);return `<span class="term" data-k="${k}">${l}</span>`;});return[plain,html];}
 function unlock(k){if(!S.gloss.has(k)){S.gloss.add(k);store.set('ark-gloss',[...S.gloss]);const g=$('#glossBtn');g.classList.remove('new');void g.offsetWidth;g.classList.add('new');}}
 function showDlg(who,text,choices){const run=RUN;
@@ -824,7 +939,7 @@ async function announce(){
   await narr('所有的螢幕，在同一秒亮成白色。月台上的人一個接一個抬起頭。');
   const cine=$('#cine'),line=$('#cLine');cine.hidden=false;busy=true;
   const L=['早安，地球。','從今天凌晨四點起，{{halo|Halo Array}} 正式併網。我們在軌道上，接住了太陽。','同一時間，{{qlat|Q-Lattice 晶片}}進入量產。{{compute|算力}}，從此不再是稀缺的東西。','這代表什麼？','代表從今天起，你不需要再為了錢工作了。','每一個人，每個月，都會收到足夠生活的錢。不用申請，不用排隊，不用證明你值得。','歡迎來到新紀元。','十年前，我說我們會做出會飛的車。你們笑我。','現在，你們城市的上空，每天有三萬輛。','所以今天，當我說——我們可以移民火星了。','請相信我。','而這，只是開始。','Helios 的第一座火星城市，已經準備好了。','在那裡，沒有疾病，沒有衰老，沒有終點。','{{mars|第一代火星移民}}，預約從現在開放。'];
-  for(const s of L){const [p,h]=fmt(s);await new Promise(res=>{let i=0,done=false,tm=0;const fin=()=>{if(done)return;done=true;clearTimeout(tm);line.innerHTML=h;};
+  $('#cine .nm').textContent=NM('Adrian Vale｜Helios 創辦人');CINE_SKIP=false;for(const s of L){if(CINE_SKIP){fmt(s);continue;}const [p,h]=fmt(s);await new Promise(res=>{let i=0,done=false,tm=0;const fin=()=>{if(done)return;done=true;clearTimeout(tm);line.innerHTML=h;};
     const tick=()=>{i++;line.textContent=p.slice(0,i);if(i%3===0)tone(300,.03,'sine',.015);if(i>=p.length)fin();else tm=setTimeout(tick,45/S.speed);};tick();
     cine.onclick=()=>{if(!done){fin();return;}cine.onclick=null;res();};});}
   cine.hidden=true;unlock('helios');setTicker('［突發］Helios：人類從今天起不必再為錢工作　［突發］第一代火星移民預約今日開放　［即時］全球股市開盤即漲停　［即時］北原電力宣布今夏限電取消',true);
@@ -1096,7 +1211,7 @@ function buildStreetLeo(){
 async function speech(L2){
   const cine=$('#cine'),line=$('#cLine');cine.hidden=false;busy=true;
   const L=L2||['早安，地球。','從今天凌晨四點起，{{halo|Halo Array}} 正式併網。我們在軌道上，接住了太陽。','同一時間，{{qlat|Q-Lattice 晶片}}進入量產。{{compute|算力}}，從此不再是稀缺的東西。','這代表什麼？','代表從今天起，你不需要再為了錢工作了。','每一個人，每個月，都會收到足夠生活的錢。不用申請，不用排隊，不用證明你值得。','歡迎來到新紀元。','十年前，我說我們會做出會飛的車。你們笑我。','現在，你們城市的上空，每天有三萬輛。','所以今天，當我說——我們可以移民火星了。','請相信我。','而這，只是開始。','Helios 的第一座火星城市，已經準備好了。','在那裡，沒有疾病，沒有衰老，沒有終點。','{{mars|第一代火星移民}}，預約從現在開放。'];
-  for(const s of L){const [p,h]=fmt(s);await new Promise(res=>{let i=0,done=false,tm=0;const fin=()=>{if(done)return;done=true;clearTimeout(tm);line.innerHTML=h;};
+  $('#cine .nm').textContent=NM('Adrian Vale｜Helios 創辦人');CINE_SKIP=false;for(const s of L){if(CINE_SKIP){fmt(s);continue;}const [p,h]=fmt(s);await new Promise(res=>{let i=0,done=false,tm=0;const fin=()=>{if(done)return;done=true;clearTimeout(tm);line.innerHTML=h;};
     const tick=()=>{i++;line.textContent=p.slice(0,i);if(i%3===0)tone(300,.03,'sine',.015);if(i>=p.length)fin();else tm=setTimeout(tick,45/S.speed);};tick();
     cine.onclick=()=>{if(!done){fin();return;}cine.onclick=null;res();};});}
   cine.hidden=true;unlock('helios');
@@ -2419,6 +2534,10 @@ function finishIvy(id){
 
 /* ---------- flow ---------- */
 const LEO_PORT=["................","...hh.hhh.hh....","..hhhhhhhhhhhh..",".hhhhhhhhhhhhhh.",".hhsssshhssssh..",".hsssssssssssss.",".sseessssseesss.",".sssssssssssssS.",".ssssssSSsssssS.",".sssmmmmmmssss..","..sssssssssss...","...SSsssssSS....",".....SSSSSS.....","...gggggggggg...","..ggyggggggyggg.",".gggyggwwggyggg.",".gggyggwwggyggg.",".gggyggwwggyggg."];
+/* hair styles (hs) and signature pieces (acc) for the 32×32 sprites */
+Object.entries({ivy:{acc:'badge'},leo:{hs:'cap',acc:'pack'},dict:{hs:'mil',acc:'cape',hc:'#dcd8e0'},gen:{hs:'mil',hc:'#2a2230'},vale:{acc:'turtle'},noor:{hs:'long',acc:'coat',gl:1},
+  nina:{hs:'pig'},mom:{hs:'bun'},uncle:{hs:'bald'},aunt:{hs:'bun'},maid:{hs:'bun'},wife:{hs:'long'},pr:{hs:'long'},nmom:{hs:'bun'},vmom:{hs:'bun'},grey:{hs:'bald'},stu:{hs:'short'}})
+  .forEach(([k,v])=>{if(PAL[k])Object.assign(PAL[k],v);});
 const CHARS={
   ivy:{rar:'n',tag:'· N',no:'No. 3,417,902',name:'Ivy',role:'34 歲 · 會計 · 每天搭藍線',quote:'「計算中。」',label:'社畜',pal:'ivy',
     stats:[['順位','計算中'],['攜帶上限','1'],['家人','<span class="greyed">媽媽、Nina、Miso</span>']],
