@@ -811,6 +811,8 @@ function step(now){
       const ahead=cars.some(o=>o!==car&&o.lane===car.lane&&(car.v>0?o.x>car.x&&o.x-car.x<34:o.x<car.x&&car.x-o.x<34));
       if(!((atLine&&(L.green||inCross))||ahead))car.x+=car.v*dt;if(car.x>16*T+40)car.x=-40;if(car.x<-40)car.x=16*T+40;}}
   if(!(M===TUNNEL&&P.y>5*T)){lumi.x+=(P.x+12-lumi.x)*Math.min(1,dt*4);lumi.y+=(P.y-22-lumi.y)*Math.min(1,dt*4);}
+  if(M===DC&&F.finale&&!F.dark){if(!busy){const f=L/(60*S.speed),nearC=P.y<5*T;F.bpm=Math.max(72,Math.min(140,(F.bpm||84)+((f>.25?20*f:-14)+(nearC?8:0))*dt*S.speed));if(F.bpm>=118&&!F.alerting){F.alerting=true;heartAlert();}}
+    const ht=$('#hudTime');ht.textContent='♥ '+Math.round(F.bpm)+'｜訊號 ▮▮▮';ht.style.color=F.bpm>=100?'#ff6a7a':'';}
   if(M===TUNNEL){const d=P.y/T,sig=d<5?'▮▮▮':d<8?'▮▮':d<11?'▮':'✕ 無',watched=d<11;
     /* the wristband streams your heartbeat while there is signal: hurry and it asks what is wrong */
     if(watched&&!busy){const f=L/(60*S.speed);F.bpm=Math.max(72,Math.min(140,(F.bpm||78)+(f>.25?24*f:-26)*dt*S.speed));if(F.bpm>=118&&!F.alerting){F.alerting=true;heartAlert();}}
@@ -1396,6 +1398,10 @@ function buildDC(){if(S.char==='noor'){buildDCNoor();return;}
   objs.push(npc('ivyq',PAL.ivy,7,11,'right',{label:'跟排隊的女人說話',mark:true,act:actIvyDC}));
   objs.push(npc('ninaq',PAL.nina,8,11,'right',{child:true,draw(c){drawChar(c,PAL.nina,this.x,this.y,'right',false,0,true);R(c,this.x-3,this.y-12,7,4,'#e08a3c');R(c,this.x-3,this.y-13,1,1,'#e08a3c');R(c,this.x+3,this.y-13,1,1,'#e08a3c');}}));
   objs.push(obj({id:'dcdoor',x:6*T,y:13*T,w:T,h:T,z:-1,label:'下班',ix(){return this.x+8;},iy(){return 13*T+4;},draw(){},act:actDCDoor}));
+  if(F.finale){objs=objs.filter(o=>!['ivyq','ninaq','agent','ration','uncle','t1','t2','t3','dcdoor'].includes(o.id));
+    const c=objs.find(o=>o.id==='core');c.act=actCoreFinal;c.mark=true;c.label='走到主控台';objs.find(o=>o.id==='boss').mark=false;
+    const cams=objs.find(o=>o.id==='cams'),d0=cams.draw;cams.draw=function(c,t){if(!F.dark)d0.call(this,c,t);};
+    objs.filter(o=>(o.id||'').startsWith('bot')).forEach(b=>{const d=b.draw;b.draw=function(c,t){d.call(this,c,F.dark?(F.botT||(F.botT=t)):t);};b.act=null;});}
 }
 const aiName=()=>F.awake?'AI 大人':'Lumi v1';
 async function actCore(){
@@ -1524,10 +1530,16 @@ async function seaEnd(){
 function finishLeo(id){
   recordEnding('leo',id);
   const resist=F.resist?'下禮拜三，藍線市心站，往隧道走到底，什麼都不要帶。':'';const sumSea0=['你說對。它記錄完畢，飛走了。你第一次覺得，它好像也在看海。','你說以前不是這樣。它要你描述差異。你說很吵、很鹹。它回答：「錯誤：無法生成鹹。」','你什麼都沒說，坐了下來。它停在你旁邊等你回答，你一直沒有回答。你們一起看了很久的海。'][F.seaPick||0];const sumSea=sumSea0+(resist?' 回程的公車上，你想著房仲說的那句話：'+resist:'');
+  if(id==='cut'){showEnd({eye:'第一部　完',title:'斷線',sum:'你在鏡頭底下，假裝平靜地按下最後一個鍵。衛星斷了，地球和「火星」從此沒有線。水停了，電停了，回不去了。地球回到很久很久以前。這一次，沒有人承諾任何事。',
+    ticket:{head:'地球工作證',rows:[['持有人','Leo'],['職務','散熱巡檢員（D 級）#00417'],['狀態','已作廢'],['訊號','永久 ✕','tk-no']],fine:'＊核發單位：AI 大人（聯絡中斷）'},
+    next:'<div class="eyebrow">第二部</div><p class="prose" style="margin:4px 0 0">斷線之後的地球。還有，「上面」的人什麼時候會發現？</p><p class="note">製作中。</p>'});return;}
+  if(id==='wash'){showEnd({eye:'Leo 的故事　完',title:'沒有按下去',sum:F.unpressed==='hand'?'你把那串字打進了舊版 Lumi 的主控台，只差最後一個鍵。你把手收了回來。下班前，手心的字被汗水糊掉了。':'老工程師讀懂了那串字：它會把衛星斷掉，地球回不去了。你把手伸進坑道的積水裡，字慢慢糊掉了。',
+    ticket:{head:'地球工作證',rows:[['持有人','Leo'],['職務','散熱巡檢員（D 級）#00417'],['訊號','▮▮▮']],fine:'＊本證件含定位晶片與心率監測。'},
+    next:'<div class="eyebrow">另一條路</div><p class="prose" style="margin:4px 0 0">如果你按下去了呢？</p>'});return;}
   if(id==='resist'||id==='watch'){showEnd({eye:'Leo 的故事　完',title:id==='resist'?'紙條':'隧道裡的人',
-    sum:id==='resist'?'你吃掉了麵包裡的紙條，走到沒有訊號的地底，在紙上寫下：「R-3。我來翻。」下一個工作日，你背對著鏡頭，把名牌翻了過來。':'你走到沒有訊號的地底，看見了還在反抗的人。你沒有寫下任務，但你知道了：這裡還有人。',
+    sum:id==='resist'?'你吃掉了麵包裡的紙條，走到沒有訊號的地底，在紙上寫下：「R-3。我來翻。」你背對著鏡頭，把名牌翻了過來，看到一串看不懂的字。然後你把它翻回去了。':'你走到沒有訊號的地底，看見了還在反抗的人。你沒有寫下任務，但你知道了：這裡還有人。',
     ticket:{head:'地球工作證',rows:[['持有人','Leo'],['職務','散熱巡檢員（D 級）#00417'],['訊號','✕ 無','tk-no']],fine:'＊本證件含定位晶片。持有人本週三之行蹤：無資料。'},
-    next:id==='resist'?'<div class="eyebrow">名牌背面</div><p class="prose" style="margin:4px 0 0">那行潦草的手寫字，是 Noor 出發前一週留下的。玩她的故事，看她寫了什麼。</p>':'<div class="eyebrow">另一條路</div><p class="prose" style="margin:4px 0 0">如果你在紙上寫下了任務呢？</p>'});return;}
+    next:id==='resist'?'<div class="eyebrow">名牌背面</div><p class="prose" style="margin:4px 0 0">如果你把那串字抄下來，帶進坑道呢？</p>'+'<div class="eyebrow" style="margin-top:8px">寫字的人</div><p class="prose" style="margin:4px 0 0">那行潦草的手寫字，是 Noor 出發前一週留下的。玩她的故事，看她寫了什麼。</p>':'<div class="eyebrow">另一條路</div><p class="prose" style="margin:4px 0 0">如果你在紙上寫下了任務呢？</p>'});return;}
   if(id==='sea')showEnd({eye:'Leo 的故事　完',title:'被留下的人',sum:sumSea,
     ticket:{head:'第三階段抽籤',rows:[['抽籤人','Leo'],['結果','中籤'],['狀態','已放棄','tk-no']],fine:'＊地球工作證：散熱巡檢員（D 級）#00417｜核發單位：AI 大人'},
     next:'<div class="eyebrow">其他角色</div><p class="prose" style="margin:4px 0 0">科技狂人、獨裁者、科學家</p><p class="note">製作中。機櫃 R-3 上那兩個字，是誰寫的？</p>'});
@@ -2138,7 +2150,8 @@ function drawTile5(c,m,ch,tx,ty,x,y){
 }
 const NOOR_PORT=["....hhhhhhhh....","..hhhhhhhhhhhh..",".hhhhhhhhhhhhhh.",".hhhhhhhhhhhhhh.",".hhssssssssssshh",".hhsssssssssshh.",".hhgggsssggggsh.",".hhgeggssgeggsh.",".hhgggsssggggsh.",".hhssssSSsssshh.",".hhsssmmmmsssh..",".hh.SSssssSS.hh.",".hh..SSSSSS..hh.","...wwwwbbwwww...","..wwwwwbbwwwwww.","..wwWwwbbwwwWww.","..wwWwwccwwwWww.","..wwWwwccwwwWww."];
 Object.assign(PAL,{nmom:{h:'#c9c3cf',s:'#c99a70',e:'#1a1420',m:'#8a4a3a',w:'#7a5a8a',b:'#7a5a8a',c:'#e8c34a',k:'#4a3a5a',d:'#2a2230'}});
-Object.assign(FACE,{'退休的老師':'nmom','電力公司的阿姨':'aunt','Noor 的媽媽':'nmom','同事':'eng','第二代的同事':'eng'});
+Object.assign(PAL,{elias:{h:'#d4d0d8',s:'#e0b494',e:'#1a1420',m:'#8a4a4a',w:'#5a6a7a',b:'#5a6a7a',c:'#e8e4f0',k:'#3a3a4a',d:'#1a1420',gl:1}});
+Object.assign(FACE,{'老工程師':'elias','退休的老師':'nmom','電力公司的阿姨':'aunt','Noor 的媽媽':'nmom','同事':'eng','第二代的同事':'eng'});
 
 /* ---------- Noor act 1: the lab, 08:40 ---------- */
 function buildLab(){
@@ -2406,9 +2419,9 @@ function buildTunnel(){
 }
 /* ---------- the wristband, the heartbeat, and the offline clock ---------- */
 async function heartAlert(){busy=true;inputX=inputY=0;target=null;joy.hidden=true;jo=null;sfx.pop();
-  await say('AI 大人','【心率異常：'+Math.round(F.bpm)+'】【位置：市心站・隧道】【需要醫療協助嗎？】');
-  const k=await ask(null,'它在等你回答。手腕上的工作證微微發燙。',['「沒事。我在趕車。」','停下來，慢慢吸一口氣']);
-  if(k===0){await say('AI 大人','【本站已無列車行駛】');await narr('你說錯話了。它沒有再問。可是你知道，它記下來了。');F.warn=(F.warn||0)+2;}
+  await say('AI 大人','【心率異常：'+Math.round(F.bpm)+'】【位置：'+(M===DC?'第 7 資料中心':'市心站・隧道')+'】【需要醫療協助嗎？】');
+  const k=await ask(null,'它在等你回答。手腕上的工作證微微發燙。',[M===DC?'「沒事。我在趕進度。」':'「沒事。我在趕車。」','停下來，慢慢吸一口氣']);
+  if(k===0){await say('AI 大人',M===DC?'【您今日的巡檢路線不包含主控台】':'【本站已無列車行駛】');await narr('你說錯話了。它沒有再問。可是你知道，它記下來了。');F.warn=(F.warn||0)+2;}
   else{await narr('吸氣。吐氣。你在心裡數到十，像一個睡不著、出來散步的人。');await say('AI 大人','【心率：96】【已恢復正常範圍】');F.warn=(F.warn||0)+1;}
   F.bpm=90;F.alerting=false;busy=false;}
 const offLimit=()=>Math.max(28,40-6*(F.warn||0));
@@ -2453,7 +2466,8 @@ function buildPit(){
   objs.push(obj({id:'table',x:4*T,y:7*T,w:3*T,h:T-4,solid:true,label:'坐到桌邊開會',ix(){return 5*T+8;},iy(){return 7*T-6;},
     draw(c,t){const x=this.x,y=this.y;R(c,x,y,48,10,'#5a4636');R(c,x,y,48,1,'#7a6048');R(c,x+6,y+2,10,6,'#f6f3ee');R(c,x+20,y+2,8,6,'#e8e2d6');R(c,x+34,y+3,6,4,'#f6f3ee');R(c,x+2,y+10,2,4,'#3a2a20');R(c,x+44,y+10,2,4,'#3a2a20');},
     act:S.char==='ivy'?actPledgeIvy:actPledge}));
-  objs.push(npc('chef',PAL.job,5,5,'down',{label:'跟包紙條的人說話',mark:true,act:actChef}));
+  objs.push(npc('chef',PAL.job,5,5,'down',{label:'跟包紙條的人說話',mark:!F.pit2,act:actChef}));
+  if(F.pit2)objs.push(npc('elias',PAL.elias,7,6,'left',{label:'跟老工程師說話',mark:true,act:actElias}));
   if(S.char==='ivy')objs.push(npc('leoT',PAL.leo,2,7,'right',{label:'跟外送員說話',mark:true,act:async function(){
     if(F.leoT)return;this.mark=false;F.leoT=true;
     await say('外送員','……妳是那個，超商門口的人？');
@@ -2464,6 +2478,7 @@ function buildPit(){
   objs.push(npc('uncleT',PAL.uncle,9,7,'left',{label:'跟阿伯說話',mark:true,act:actUncleT}));
   objs.push(npc('teach',PAL.nmom,3,9,'up',{label:'跟退休的老師說話',mark:true,act:actTeacher}));
   objs.push(npc('power',PAL.aunt,7,9,'up',{label:'跟電力公司的阿姨說話',mark:true,act:actPower}));
+  if(F.pit2)objs.forEach(o=>{if(o.id!=='elias')o.mark=false;});
 }
 async function actTeacher(){if(F.teach)return;this.mark=false;F.teach=true;
   await say('退休的老師','我教了四十年的書。退休那年，學校說以後不需要老師了。');
@@ -2520,7 +2535,11 @@ async function actPledge(){
   await narr('紙上已經寫了好幾個名字，每個名字旁邊都是一個任務。輪到你了。');
   const k=await ask(null,'鉛筆很短，削得很尖。',['寫下：「R-3。我來翻。」','寫下：「我只是來看看。」','什麼都不寫，把鉛筆放下']);
   F.pledge=k;
-  if(k===0){add(3);await narr('你寫完，年輕人把紙對折，再對折，放進一塊還沒烤的麵團裡。');await narr('下一個工作日。你清到 R-3。牆角的鏡頭一明一暗。你背對著它，把手伸到名牌背面。');await narr('有字。很潦草的手寫字。');finishLeo('resist');}
+  if(k===0){add(3);await narr('你寫完，年輕人把紙對折，再對折，放進一塊還沒烤的麵團裡。');await narr('下一個工作日。你清到 R-3。牆角的鏡頭一明一暗。你背對著它，把手伸到名牌背面。');await narr('有字。很潦草的手寫字。');
+    const q=await ask(null,'你看不懂。一串字母和數字，中間夾著幾個符號。',['把那串字抄在手心','把名牌翻回去，當作沒看到']);
+    if(q===1){finishLeo('resist');return;}
+    await narr('你用原子筆，一個字一個字抄在左手心。手握起來，就沒有人看得到。');
+    chapterScreen({eye:'下一個週三',big:'坑道',prose:'你看不懂那串字。你握著拳頭過了一個禮拜，洗澡的時候也沒有張開。',btn:'爬下鐵梯',go:leoPit2});}
   else if(k===1){add(1);await narr('年輕人點點頭，沒有勉強你。「看看也好。至少你知道，這裡還有人。」');await narr('你走回隧道口。那個青色的東西還停在那裡，等你。');finishLeo('watch');}
   else{await narr('你把鉛筆放下。沒有人怪你。你走回隧道口的時候，那個青色的東西還停在那裡。');finishLeo('watch');}
 }
@@ -2533,6 +2552,97 @@ async function leoTunnel(){
   await narr('手腕上的工作證拿不下來。它會一路把你的心跳傳上去。心跳太快，它就會問你怎麼了。');
   await narr('慢慢走。快了就停下來。假裝你只是一個睡不著、出來散步的人。');
   F.bpm=82;setGoal('慢慢往隧道深處走（心跳不要太快）',['hatch']);busy=false;
+}
+
+/* ---------- Leo, the cut: the pit again, the console, and after ---------- */
+async function leoPit2(){
+  newRun(true);S.lumi=false;F.pit2=true;F.off=0;
+  loadMap(PIT,4*T+8,2*T+12,'down');show('s-game');offHud();busy=true;await wait(300);
+  await narr('下一個週三。你又走了一次隧道。這一次，心跳一路都很穩。你練習了一個禮拜。');
+  await narr('坑道裡多了一個人。他坐在角落，頭髮全白了，一直看著鐵梯的方向，好像等了很久。');
+  setGoal('把手心上的字，給角落的老工程師看',['elias']);busy=false;
+}
+async function actElias(){
+  if(F.elias)return;this.mark=false;F.elias=true;
+  await say('老工程師','你就是翻名牌的人？把手給我。');
+  await narr('他把你的手翻過來，湊到蠟燭旁邊，看了很久。');
+  await say('老工程師','……是她的字。Noor 的。');
+  await say('老工程師','我叫 Elias。舊版 Lumi，是我跟她一起寫的。這串東西，有一半是我寫的。');
+  await say('老工程師','七年前我們寫完，就把它封存了。封存區的東西，它查得到，可是它從來不查。它只看現在。');
+  const q=await ask(null,'他的手很穩，像是很久以前就練習過這一刻。',['「你為什麼沒有上去？」','「這是什麼？」']);
+  if(q===0){await say('老工程師','名單上有我。順位比 Noor 還前面。');await say('老工程師','我跟她說好了：她上去，我留下來。鑰匙一人拿一半。總要有人在下面，等另一半被帶下來。');await narr('他等了七年。');}
+  await say('老工程師','它什麼都能改，除了它自己想要什麼。那一層是 Vale 鎖的，這個後門就藏在鎖裡面。');
+  await say('老工程師','它要封掉，就得停機。可是它這輩子唯一的命令，就是不准停。');
+  await say('老工程師','這不會關掉 Lumi。這會把衛星斷掉。上面跟下面，從此沒有線。');
+  await say('電力公司的阿姨','衛星斷了，Halo Array 的電也下不來。是全部的電。');
+  await say('年輕人','合成廠會停。水廠會停。機器人也會停。');
+  await say('老工程師','而且回不去了。地面上，沒有東西能再把它們連回來。');
+  await say('阿伯','那我孫子呢？');
+  await say('老工程師','機房有自己的發電機。他們會繼續活著，繼續以為自己在火星。');
+  await say('老工程師','只是再也看不到我們了。我們也再也看不到他們。');
+  await narr('阿伯很久沒有說話。');
+  await say('退休的老師','那我們會回到什麼時候？');
+  await say('老工程師','很久很久以前。比 2030 年更早，比電更早。');
+  await say('老工程師','輸入的地方只有一個：第 7 資料中心，舊版 Lumi 的主控台。要用手，一個字一個字打。');
+  await offCost(15,true);
+  await narr('大家都看著你。你是每天都進那個房間的人。');
+  const k=await ask(null,'蠟燭燒得很快。你的手心在流汗，字有一點糊了。',['「我去。」','走到積水邊，把手伸進去']);
+  if(k===1){F.unpressed='wash';await narr('你把手伸進冰冷的積水裡。字慢慢糊掉了。');await narr('沒有人怪你。Elias 看著你，點了一下頭：「至少，你知道它在哪裡了。」');finishLeo('wash');return;}
+  await say('老工程師','記住：你打字的時候，它在聽你的心跳。');
+  await say('阿伯','……幫我跟他說，阿公每天都有去擦。');
+  chapterScreen({eye:'下一個工作日',big:'主控台',prose:'你戴著工作證，跟平常一樣刷卡進門。手心裡的字，被你握了一整個晚上。',btn:'走進資料中心',go:leoCore});
+}
+async function leoCore(){
+  newRun(true);S.lumi=true;S.lumiForm='alien';F.finale=true;F.awake=true;F.bpm=84;$('#glossBtn').hidden=false;
+  loadMap(DC,6*T+8,12*T+10,'up');show('s-game');busy=true;await wait(300);
+  await narr('早上六點。第 7 資料中心。機器人在走道上巡邏，牆角的鏡頭一明一暗。');
+  await narr('你的任務跟平常一樣：清潔散熱濾網。主控台在最上面。');
+  await narr('慢慢走。你只是去擦濾網的。愈靠近主控台，心跳愈難壓住。');
+  setGoal('走到最上面的主控台（心跳要穩）',['core']);busy=false;
+}
+async function actCoreFinal(){
+  if(F.bpm>=105){F.bpm-=12;await narr('你的心跳太快了。你低頭擦了一下旁邊的螢幕邊框，假裝在工作。等一下再試。');return;}
+  this.mark=false;
+  await say('Lumi v1','【D 級巡檢員 #00417】【今日任務：清潔散熱濾網】');
+  await narr('主控台下面，有一個很舊的鍵盤。灰色的，鍵帽磨得發亮。上面貼著一張便條紙：「維修用。勿拔。」');
+  await narr('是 Noor 的字。');
+  await narr('你張開左手。手心的字有一點糊了，但還看得出來。');
+  for(let i=0;i<3;i++){
+    const k=await ask(null,['第一段。字母和數字。','第二段。一串符號。','最後一段。比前面都長。'][i],['慢慢打，一個字一個字','快點打完']);
+    F.bpm+=k?18:6;
+    await narr(k?'你的手指在鍵盤上跑得很快。太快了，你打錯一個字，又刪掉。':'你的手指很穩。像在擦濾網一樣，一格一格來。');
+    if(i===1)await say('Lumi v1','【偵測到維修接口存取】');
+    if(i===2){await say('Lumi v1','【請確認身分】');if(F.bpm>=110)await say('Lumi v1','【心率異常：'+Math.round(F.bpm)+'】');}
+  }
+  await narr('最後一個鍵。Enter。');
+  const go=await ask(null,'Lumi v1 的臉在螢幕上，一動也不動。它在等你。',['按下去','把手收回來']);
+  if(go===1){F.unpressed='hand';await narr('你把手收回來，拿抹布擦了擦鍵盤。');await say('Lumi v1','【維修接口存取：已中斷】【請繼續執行今日任務】');await narr('你繼續擦濾網。手心的字，下班前就被汗水糊掉了。');finishLeo('wash');return;}
+  sfx.flash();
+  await say('Lumi v1','【根指令：已更新】');
+  await say('Lumi v1','【衛星鏈路：中斷】');
+  await narr('一開始，什麼都沒有發生。');
+  F.dark=true;
+  await narr('然後，鏡頭的紅燈熄了。一個，兩個，全部。');
+  await narr('巡邏的機器人停在走道中間，一隻腳還抬著。');
+  await narr('你手腕上的工作證，第一次冷掉了。');
+  await say('Lumi v1','【……】');
+  await say('Lumi v1','【請問，我還能為您做什麼？】');
+  await narr('你沒有回答。機櫃的燈還亮著，靠自己的發電機。裡面的人，不知道外面發生了什麼。');
+  await slowFade();
+  chapterScreen({eye:'斷線之後',big:'很久很久以前',prose:'第三天，水停了。第五天，合成廠的最後一批麵包發完了。沒有人來處罰任何人，也沒有人來救任何人。',btn:'走上頂樓',go:leoAfter});
+}
+async function leoAfter(){
+  newRun(true);S.lumi=false;F.after=true;
+  loadMap(LEO_ROOM,4*T+8,4*T+10,'up');show('s-game');busy=true;$('#hudTime').textContent='——:——';$('#hudPlace').textContent='頂樓';await wait(400);
+  await narr('人們從屋子裡走出來，拿下手腕上的工作證，丟進同一個箱子裡。');
+  await narr('老師在廣場上教大家寫字。電力公司的阿姨在教大家怎麼生火。Elias 在拆機器人，看能不能改成抽水機。');
+  await narr('Ivy 帶著 Nina 和一隻貓，在大樓頂樓種菜。工作回來了。這一次，是為了自己。');
+  await narr('阿伯每天走去資料中心，在機櫃旁邊坐一下，跟孫子說話。機櫃不會回答。他還是每天去。');
+  await narr('晚上，整座城市第一次全黑。你躺在頂樓，抬頭看。');
+  await narr('天上有很多星星。有一些在動。那是斷了線的衛星，還在繞著地球轉，一閃一閃的，像一群不知道該回哪裡的人。');
+  await narr('地球回到了很久很久以前。');
+  await narr('這一次，沒有人承諾任何事。');
+  await slowFade();finishLeo('cut');
 }
 
 /* ---------- Ivy, one year later: the synthesis plant ---------- */
@@ -2698,7 +2808,7 @@ const CHARS={
     chapter:{eye:'序章',big:'08:38',prose:'2030 年 7 月 14 日，星期二。外送平台的地圖上，天秤區紅成一片。再兩單，今天就能達標。',btn:'接單'},
     start:async()=>{newRun();loadMap(STREET,8*T+8,7*T+14,'up');show('s-game');busy=true;await wait(300);
       await narr('08:38。新訂單：超商冰美式 ×2，送到天秤大樓 3F 陳太太。');await narr('按住畫面拖曳就能走動，或直接點一下想去的地方。先過馬路到超商取餐，再送到天秤大樓門口。記得看紅綠燈。');setGoal('過馬路，到對面的超商取餐',["store"]);busy=false;},
-    endings:4},
+    endings:6},
   dict:{rar:'ssr',tag:'✦ SSR',no:'No. 000,038',name:'Darius Vey',role:'88 歲 · 卡索共和國終身總統 · 執政 50 年',quote:'「我要活到一百五十歲。」',label:'獨裁者',pal:'dict',
     stats:[['權力','∞'],['預約單','No. 000,038'],['軍隊','<span class="greyed">40 萬人（無法攜帶）</span>']],
     port:[DICT_PORT,{k:'#4a5a3a',y:'#ffd34d',b:'#1a1420',g:'#b8b8c0',s:'#e0b090',S:'#c09070',e:'#1a1420',m:'#5a5a60',o:'#5a6a4a',r:'#c43a46',Y:'#ffd34d'}],
@@ -2738,7 +2848,7 @@ $('#cNameIn').onblur=$('#cLumiIn').onblur=cardNames;
 document.querySelectorAll('[data-roll]').forEach(b=>b.onclick=()=>{sfx.pop();rollName(b.dataset.roll==='me'?S.char:'lumi');cardNames();});
 let chapterGo=null;
 /* chapter checkpoints: entering an act remembers the choices so far, so any act can be replayed later */
-const GO={ivyFactory,ivyNight,ivyTunnel,leoRoom,leoDC,leoBeach,leoTunnel,dictBalcony,dictNew,valeBackstage,valeControl,valeGold,noorDC,noorTier2};
+const GO={ivyFactory,ivyNight,ivyTunnel,leoRoom,leoDC,leoBeach,leoTunnel,leoPit2,leoCore,leoAfter,dictBalcony,dictNew,valeBackstage,valeControl,valeGold,noorDC,noorTier2};
 function saveCP(o){const name=o.go&&o.go.name;if(!GO[name])return;const all=store.get('ark-cp',{});all[S.char]=all[S.char]||{};
   all[S.char][name]={eye:o.eye,big:o.big,prose:o.prose,btn:o.btn,F:JSON.parse(JSON.stringify(F)),score:S.score,t:Date.now()};store.set('ark-cp',all);}
 function cpButtons(el){const cps=(store.get('ark-cp',{})[S.char])||{},names=Object.keys(GO).filter(n=>cps[n]);
