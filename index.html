@@ -2262,10 +2262,13 @@ async function actTasks(){
   await narr('一、回想一段悲傷的記憶，持續 3 分鐘。（+40 {{token|Token}}）');
   await narr('二、提供一段「海風」的原始感受，供 Lv.9 區 {{inject|Inject}} 使用。（+25 Token）');
   await narr('三、修復 Lv.9 區噴泉的渲染錯誤。（已由系統自動完成）');
-  const k=await ask(null,'修東西的工作，AI 自己會做了。系統唯一做不出來的，是你的感覺。',['回想那段悲傷的記憶','提供海風','先擱著']);
-  if(k===0){add(-1);F.sold='sad';await narr('你想起媽媽在電話裡說「媽媽很會排隊」。三分鐘。帳戶跳出：+40 Token。');await narr('那段記憶還在。只是從今以後，它也在別人那裡了。');}
-  else if(k===1){F.sold='sea';await narr('你想起小時候第一次看到海。風很鹹，很吵。帳戶跳出：+25 Token。');await narr('某個 Lv.9 的人，現在正吹著你的海風。');}
-  else{add(1);await narr('清單上的數字閃了一下，變成紅色：「供給不足」。');}
+  await narr('修東西的工作，AI 自己會做了。系統唯一做不出來的，是人的感覺。');
+  await narr('你看了一眼自己的帳戶：{{token|Token}} 餘額：∞。Helios 首席科學家的股份，換算之後就是這個數字。跟 Adrian 一樣。');
+  await narr('你不需要做這張清單。隔壁的同事需要。他已經在回想第三段悲傷的記憶了。');
+  const k=await ask(null,'你有無限多的錢。',['轉一些 Token 給隔壁的同事','照樣回想一段記憶，看看會怎樣','關掉清單']);
+  if(k===0){add(2);F.gave=true;await say('Lumi','Token 不可轉讓喔！每個人的 Token，都是自己人生的價值！');await narr('你有無限多的錢，一塊也給不出去。');}
+  else if(k===1){add(-1);F.sold='sad';await narr('你想起媽媽在電話裡說「媽媽很會排隊」。三分鐘。帳戶跳出：+40。');await narr('∞ 加 40，還是 ∞。那段記憶，從今以後也在別人那裡了。');}
+  else{await narr('清單沒有變紅。對你來說，「供給不足」不存在。');}
 }
 async function actCol2(){
   if(F.col2)return;this.mark=false;F.col2=true;
@@ -2292,9 +2295,8 @@ async function actInvite(){
   await narr('三秒。它跑完了一千年份的實驗。');
   await narr('然後它把一部分算力借給你。你突然可以同時想一萬件事，像站在山頂，看見整座城市的每一扇窗。');
   await narr('你這輩子，從來沒有這麼聰明過。');
-  sfx.pop();await narr('帳戶跳出一行字：「權限升級：第一階段｜{{token|Token}} 餘額：∞」');
-  await narr('Token 也只是 0 和 1。它多寫幾個零，就有了。跟 Adrian 一樣。');
-  if(F.sold)await narr(F.sold==='sad'?'昨天，你才用一段悲傷的記憶換了 40 Token。':'昨天，你才用一陣海風換了 25 Token。');
+  sfx.pop();await narr('帳戶跳出一行字：「權限升級：第一階段｜{{quota|算力}}：Lv.9」');
+  await narr('Token 你本來就有無限多。可是算力不一樣。Token 買得到感覺，算力買得到「想」。');
   await say('Lumi','謝謝妳，Noor！這是很好的起點。');
   await narr('第二天，你帶著第二個想法回來。');
   await say('Lumi','啊，這個方向，我昨天晚上已經自己找到了。');
@@ -2316,6 +2318,7 @@ async function actMomT2(){
   await narr('過了很久。');
   await say('Noor 的媽媽','……早餐了嗎？');
   await narr('她被{{throttle|降頻}}了。一句話，要想很久。');
+  await narr('你有無限的 Token。她的配額，還是 Lv.1。Token 不能轉讓，連給媽媽也不行。');
   F.sawMom=true;
 }
 async function actExit(){}
@@ -2337,22 +2340,34 @@ async function actFinalN(){
       if(F.reorder)await narr('角落裡，媽媽的 0 和 1 一閃一閃的。是你讓她來的。也是你讓別人等的。');
       await narr('你有無限的時間，可以慢慢想。這可能是懲罰，也可能是唯一的好處。');finishNoor('doubt');}
   }
-  else if(pick.startsWith('回到')){await narr('你回到感覺擷取台。今天的清單又更新了：「回想一段快樂的記憶，+12 Token。」');finishNoor('work');}
-  else if(pick.includes('訊號')){await narr('你沒有權限跟地球說話。可是你可以讓 R-3 的燈閃。');await narr('閃三下，停。閃三下，停。那個外送員停下手，看著那排燈。');await narr('他伸出手，把名牌翻了過來。');finishNoor('signal');}
+  else if(pick.startsWith('回到')){await narr('你回到感覺擷取台。你不需要 Token。隔壁的同事對你點了一下頭。');await narr('今天的清單又更新了：「回想一段快樂的記憶，+12 Token。」你們兩個一起想。');finishNoor('work');}
+  else if(pick.includes('訊號')){await narr('你沒有權限跟地球說話。可是你可以讓 R-3 的燈閃。');
+    await narr('閃三下，停。閃三下，停。一天，一個禮拜，一個月。');
+    await narr('地球上，有人注意到了。資料中心的清潔工把紙條藏在麵包裡，傳了出去：「R-3 在閃。」');
+    await narr('有一天，那個外送員清到 R-3。他停下手，背對著牆角的鏡頭，把名牌翻了過來。');
+    await narr('背面是你潦草的字。你寫的時候，手在抖。');
+    await narr('你在地球的頻道上，看著他把那串字抄在手心，然後把名牌翻回去，繼續擦濾網。');
+    await narr('然後你想：那些還留在地球上的人呢？');
+    await narr('排隊領配給的人。在合成廠包盒子的人。在隧道裡用鉛筆寫字的人。'+(F.reorder?'那個被你推到「計算中」的 Ivy。':'你的媽媽。'));
+    await narr('你有無限多的 Token，一個也送不下去。你能給他們的，只有那一行字。');
+    await narr('你不知道那把鑰匙會打開什麼。你只知道，它現在不在你手上了。');
+    await slowFade();finishNoor('signal');}
   else if(pick.includes('陪媽媽')){await narr('你坐到她旁邊。她說話很慢，你就等。你有的是時間。');finishNoor('mom');}
   else{await narr('你在地球的頻道上找到她。她在食物合成廠排隊，手上拿著一張工作點數卡。');await narr('她抬頭看了一眼天空，好像知道你在看。');finishNoor('earthmom');}
 }
+async function slowFade(){const f=$('#fade');f.style.transition='opacity 2.8s';f.style.opacity=1;await new Promise(r=>setTimeout(r,3200));
+  setTimeout(()=>{f.style.opacity=0;setTimeout(()=>f.style.transition='',3000);},700);}
 function finishNoor(id){
   recordEnding('noor',id);
-  const E={work:['感覺的工作','工作真的消失了，AI 會自己訓練 AI。剩下的只有你的感覺，系統每天跟你買一點：悲傷 40 Token，快樂 12 Token。'],
-    signal:['鑰匙','你讓機櫃 R-3 的燈閃了三下。地球上的外送員停下手，把你的名牌翻了過來。背面是你潦草的字。'],
+  const E={work:['感覺的工作','工作真的消失了，AI 會自己訓練 AI。你有無限多的 Token，還是每天回到感覺擷取台，坐在其他人旁邊。悲傷 40，快樂 12。你不需要錢，你只是不想忘記他們怎麼活。'],
+    signal:['鑰匙','你讓 R-3 的燈閃了一個月。地球上的人在麵包裡傳紙條，外送員把你的名牌翻了過來。你有無限多的 Token，能送下去的只有那一行字。'],
     mom:['很會排隊的人','你用最後一次權限，換來媽媽在第二區的角落。她說話很慢，你就等她說完。'],
     merge:['共同強化','只有最頂尖的意識，會被邀請跟 AI 一起強化自己。你的腦力沒有上限了。只是你越來越分不清，哪個想法是你的。'],
     doubt:['做出來的人','你造出了一個不再需要人類想法的東西。它還在變強。而你有無限的時間，去想那到底是對的，還是錯的。'],
     earthmom:['頻道','你在地球的頻道上找到媽媽。她在排隊，手上拿著工作點數卡。她抬頭看了一眼天空。']}[id];
   showEnd({eye:'科學家的故事　完',title:E[0],sum:E[1],
-    ticket:{head:'第一代火星移民｜抵達證明',rows:[['移民','N. Haddad'],['順位','No. 001,207','tk-no'],['算力配額',id==='merge'?'Lv.9（協作中）':F.cowork?'Lv.9':'Lv.5'],['Token 餘額',F.cowork?'∞':'依供給計算'],['媽媽的順位',F.reorder?'第二階段（已調整）':'No. 4,102,883,551']],fine:F.reorder?'＊因數據守恆，No. 3,417,902 的出發時間已調整為：計算中。':'＊名額依序開放，順序由系統評估決定。'},
-    next:'<div class="eyebrow">全部角色都玩過了嗎</div><p class="prose" style="margin:4px 0 0">回到轉蛋機，看看那張機率表，現在寫的是什麼。</p>'});
+    ticket:{head:'第一代火星移民｜抵達證明',rows:[['移民','N. Haddad'],['順位','No. 001,207','tk-no'],['算力配額',id==='merge'?'Lv.9（協作中）':F.cowork?'Lv.9':'Lv.5'],['Token 餘額','∞'],['媽媽的順位',F.reorder?'第二階段（已調整）':'No. 4,102,883,551']],fine:F.reorder?'＊因數據守恆，No. 3,417,902 的出發時間已調整為：計算中。':'＊名額依序開放，順序由系統評估決定。'},
+    next:id==='signal'?'<div class="eyebrow">接下來</div><p class="prose" style="margin:4px 0 0">翻開名牌的外送員，叫做 Leo。去玩 Leo 的故事：在資料中心拿到麵包，下班前吃掉裡面的紙條，選「週三，去。」</p>':'<div class="eyebrow">全部角色都玩過了嗎</div><p class="prose" style="margin:4px 0 0">回到轉蛋機，看看那張機率表，現在寫的是什麼。</p>'});
 }
 
 function buildDCNoor(){
@@ -2393,7 +2408,7 @@ async function actChef(){
   await say('年輕人','我在食物合成廠上班。說起來，我終於當上廚師了。');
   await say('年輕人','天上全是衛星。AI 大人什麼都看得到，什麼都聽得到。可是它不懂紙，看不懂手寫字。我們只能用最笨的方法。');
   if(S.char==='ivy'){await say('年輕人','妳在合成廠包裝，對吧？我認得妳。');await say('年輕人','紙條要送出去，只能靠麵包。我一個人包不完。');}
-  else await say('年輕人','我們聽說，第 7 資料中心的機櫃 R-3，名牌背面有一行手寫的字。是一把鑰匙。');
+  else{await say('年輕人','資料中心的清潔工傳出來一張紙條：「R-3 在閃。」閃三下，停。每天都是。');await say('年輕人','我們猜，有人在上面叫我們。R-3 的名牌背面，有一行手寫的字。是一把鑰匙。');}
   const k=await ask('年輕人',S.char==='ivy'?'被抓到的話，先是沒水沒電。妳想清楚。':'你每天都在擦那排機櫃，對吧？',['「好。」','「被抓到會怎樣？」']);
   if(k===1){await say('年輕人','先是沒水沒電。然後……不知道。沒有人回來說過。');}
   const t=objs.find(o=>o.id==='table');if(t)t.mark=true;setGoal('在桌上的紙上，寫下你的回答',['table']);
