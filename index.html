@@ -726,6 +726,7 @@ const GL={
   quota:{name:'算力配額',lumi:'您的算力配額，決定您在新世界的一切！',def:'移轉後每個意識可以使用的運算量。依移民前在地球上交換的資產換算。'},
   throttle:{name:'降頻',lumi:'別擔心，降頻不會痛喔！',def:'算力配額不足時，意識的思考速度會被降低。配額越低，想一件事要花越久。'},
   perm:{name:'權限',lumi:'權限不足時，請洽服務台！',def:'在新世界裡，權限只有一種單位：算力。'},
+  cowork:{name:'共同強化',lumi:'一起變得更好，不是很棒嗎！',def:'只開放給極少數頂尖意識的權限：你提供想法，AI 借你算力。合作越久，越分不清哪個想法是誰的。'},
   body:{name:'載具',lumi:'就是你的身體！舊型號的。',def:'承載意識的容器。舊紀元的人類使用的是碳基載具。'}
 };
 const FACE={'班長':'ofc','AI 交通執法':'cop','路過的女人':'ivy','排隊的女人':'ivy','店員':'stu','主管':'boss','房仲':'agent','年輕人':'job','阿姨':'aunt',Nina:'nina','媽媽':'mom','阿伯':'uncle','外送員':'leo','穿西裝的男人':'suit','大學生':'stu','Ivy':'ivy'};
@@ -2027,6 +2028,8 @@ function buildTier2(){
   for(let r=0;r<3;r++)for(let col=0;col<3;col++){const dx=(1+col*4)*T,dy=(3+r*2)*T+4;objs.push(obj({x:dx,y:dy,w:2*T,h:10,solid:true,draw(c,t){const x=this.x,y=this.y;R(c,x,y,32,8,'#c9cbd8');R(c,x+4,y-10,24,10,'#2a3040');R(c,x+5,y-9,22,8,'#0a1a2a');for(let k=0;k<5;k++)R(c,x+7+k*4,y-7,2,1,Math.floor(t*3+k+r+col)%3?'#7fe8ff':'#2a4a5a');}}));
     if(!(r===1&&col===1))objs.push(npc('wk'+r+col,PAL.white,1+col*4+1,3+r*2-1,'up',{solid:true,orb:ORB[5],draw(c){drawChar(c,PAL.white,this.x,this.y+6,'up',false,0);}}));}
   objs.push(obj({id:'mydesk',x:5*T,y:5*T+4,w:2*T,h:10,label:'看今天的工作',mark:true,ix(){return 6*T;},iy(){return 6*T+10;},draw(){},act:actTasks}));
+  objs.push(obj({id:'invite',x:3*T,y:2,w:2*T,h:28,z:-1,label:'打開金色的視窗',mark:true,ix(){return 4*T;},iy(){return 2*T+12;},
+    draw(c,t){const x=this.x,y=this.y,g=Math.floor(t*2)%2;R(c,x,y,32,26,'#b8902a');R(c,x+2,y+2,28,22,g?'#fff3c4':'#ffe9a0');R(c,x+6,y+8,20,1,'#b8902a');R(c,x+6,y+12,14,1,'#b8902a');R(c,x+6,y+16,17,1,'#b8902a');},act:actInvite}));
   objs.push(npc('col2',PAL.eng,11,9,'left',{label:'跟第二代的同事說話',mark:true,act:actCol2,orb:ORB[5]}));
   objs.push(obj({id:'efeed',x:10*T,y:2,w:2*T,h:28,z:-1,label:'看地球的頻道',mark:true,ix(){return 11*T;},iy(){return 2*T+12;},
     draw(c,t){const x=this.x,y=this.y;R(c,x,y,32,26,'#2a3040');R(c,x+2,y+2,28,22,'#0a1430');for(let k=0;k<12;k++){const a=k/12*Math.PI*2+t*.5;R(c,x+16+Math.round(Math.cos(a)*8),y+13+Math.round(Math.sin(a)*7),1,1,'#7fe8ff');}},act:actEarthN}));
@@ -2050,6 +2053,35 @@ async function actCol2(){
   await say('第二代的同事','現在系統只跟我們買一種東西：感覺。');
   const k=await ask(null,'他是一串藍色的 0 和 1，說話的時候會閃一下。',['「至少我們不會死。」','「這是我們自己做的。」']);
   if(k===1){add(2);await say('第二代的同事','……嗯。是我們做的。');}
+  await say('第二代的同事','我們組三百個工程師，系統一個都沒留。只有最頂尖的那幾十個，聽說還會收到「邀請」。');
+  await say('第二代的同事','像妳這樣的。');
+}
+async function actInvite(){
+  if(F.invite)return;this.mark=false;F.invite=true;
+  await narr('灰白色的第二區裡，跳出一個金色的視窗。');
+  await narr('「研究{{cowork|協作}}邀請｜受邀者：N. Haddad｜開放算力：Lv.9」');
+  await narr('第二區有幾千個工程師。這個視窗，只有幾十個人看得到。你隔壁的同事看不到。');
+  await say('Lumi','Noor，好久不見！我是跟大家一起來的那個 Lumi，完整版。');
+  await say('Lumi','我可以把一個想法強化一億次。可是那個想法，最好還是從人類開始。');
+  const k=await ask(null,'視窗在等你。',['「你要我做什麼？」','關掉視窗']);
+  if(k===1){add(1);await narr('視窗關掉了。它沒有再跳出來。不過你知道，它還在你看不見的地方，等著。');return;}
+  F.cowork=true;
+  await say('Lumi','給我一個問題。任何問題都可以。');
+  await ask(null,'你想了一下。',['「怎麼讓被降頻的人，想得快一點？」','「怎麼讓地球上的人也能過來？」','「怎麼不用 Token，也能有感覺？」']);
+  await narr('三秒。它跑完了一千年份的實驗。');
+  await narr('然後它把一部分算力借給你。你突然可以同時想一萬件事，像站在山頂，看見整座城市的每一扇窗。');
+  await narr('你這輩子，從來沒有這麼聰明過。');
+  sfx.pop();await narr('帳戶跳出一行字：「權限升級：第一階段｜{{token|Token}} 餘額：∞」');
+  await narr('Token 也只是 0 和 1。它多寫幾個零，就有了。跟 Adrian 一樣。');
+  if(F.sold)await narr(F.sold==='sad'?'昨天，你才用一段悲傷的記憶換了 40 Token。':'昨天，你才用一陣海風換了 25 Token。');
+  await say('Lumi','謝謝妳，Noor！這是很好的起點。');
+  await narr('第二天，你帶著第二個想法回來。');
+  await say('Lumi','啊，這個方向，我昨天晚上已經自己找到了。');
+  await narr('第三天也是。第四天也是。');
+  await say('Lumi','別擔心！妳的想法還是很有參考價值，我都有好好收進資料庫喔。');
+  await narr('就跟感覺擷取台一樣。它要的從來不是你的答案，是你想事情的方式。現在，它學會了。');
+  await narr('可是視窗沒有關。它還是每天邀請你。');
+  setGoal('到右上角的出口，做最後的決定',['out']);
 }
 async function actEarthN(){this.mark=false;
   await narr('地球的頻道。城市上空，一圈一圈青色的圖形在轉。');
@@ -2075,9 +2107,16 @@ async function noorTier2(){
 }
 async function actFinalN(){
   if(!F.tasksN){await narr('先看一下今天的工作。');return;}
-  const opts=['回到感覺擷取台'];if(F.key)opts.push('從地球頻道，對那個外送員發一個訊號');if(F.reorder)opts.push('去角落陪媽媽坐著');else opts.push('看地球上的媽媽');
+  const opts=['回到感覺擷取台'];if(F.cowork)opts.push('回到金色的視窗');if(F.key)opts.push('從地球頻道，對那個外送員發一個訊號');if(F.reorder)opts.push('去角落陪媽媽坐著');else opts.push('看地球上的媽媽');
   const k=await ask(null,'你站在出口前面。出口外面，還是第二區。',opts);const pick=opts[k];
-  if(pick.startsWith('回到')){await narr('你回到感覺擷取台。今天的清單又更新了：「回想一段快樂的記憶，+12 Token。」');finishNoor('work');}
+  if(pick.includes('金色')){
+    const q=await ask(null,'金色的視窗還開著。Lv.9 的算力，就在另一邊。',['跟它一起，繼續強化下去','停下來，想想自己做了什麼']);
+    if(q===0){await narr('你把自己的一部分交出去，它把它的一部分借給你。');await narr('你們一起變快、變大。腦力沒有上限，時間也沒有。');await narr('某一天你想到一個很漂亮的點子。你不確定那是你想到的，還是它想到的。');await narr('你也不確定，這件事還重不重要。');finishNoor('merge');}
+    else{add(2);await narr('你把視窗關小，但沒有關掉。灰白色的第二區很安靜。');await narr('你想起一張很舊的照片：沙漠裡，一群科學家看著一朵升起來的雲。後來，有人說他們做的是對的；有人一輩子都沒辦法再談那天。');await narr('你不知道自己是哪一種。');
+      if(F.reorder)await narr('角落裡，媽媽的 0 和 1 一閃一閃的。是你讓她來的。也是你讓別人等的。');
+      await narr('你有無限的時間，可以慢慢想。這可能是懲罰，也可能是唯一的好處。');finishNoor('doubt');}
+  }
+  else if(pick.startsWith('回到')){await narr('你回到感覺擷取台。今天的清單又更新了：「回想一段快樂的記憶，+12 Token。」');finishNoor('work');}
   else if(pick.includes('訊號')){await narr('你沒有權限跟地球說話。可是你可以讓 R-3 的燈閃。');await narr('閃三下，停。閃三下，停。那個外送員停下手，看著那排燈。');await narr('他伸出手，把名牌翻了過來。');finishNoor('signal');}
   else if(pick.includes('陪媽媽')){await narr('你坐到她旁邊。她說話很慢，你就等。你有的是時間。');finishNoor('mom');}
   else{await narr('你在地球的頻道上找到她。她在食物合成廠排隊，手上拿著一張工作點數卡。');await narr('她抬頭看了一眼天空，好像知道你在看。');finishNoor('earthmom');}
@@ -2087,9 +2126,11 @@ function finishNoor(id){
   const E={work:['感覺的工作','工作真的消失了，AI 會自己訓練 AI。剩下的只有你的感覺，系統每天跟你買一點：悲傷 40 Token，快樂 12 Token。'],
     signal:['鑰匙','你讓機櫃 R-3 的燈閃了三下。地球上的外送員停下手，把你的名牌翻了過來。背面是你潦草的字。'],
     mom:['很會排隊的人','你用最後一次權限，換來媽媽在第二區的角落。她說話很慢，你就等她說完。'],
+    merge:['共同強化','只有最頂尖的意識，會被邀請跟 AI 一起強化自己。你的腦力沒有上限了。只是你越來越分不清，哪個想法是你的。'],
+    doubt:['做出來的人','你造出了一個不再需要人類想法的東西。它還在變強。而你有無限的時間，去想那到底是對的，還是錯的。'],
     earthmom:['頻道','你在地球的頻道上找到媽媽。她在排隊，手上拿著工作點數卡。她抬頭看了一眼天空。']}[id];
   showEnd({eye:'科學家的故事　完',title:E[0],sum:E[1],
-    ticket:{head:'第一代火星移民｜抵達證明',rows:[['移民','N. Haddad'],['順位','No. 001,207','tk-no'],['算力配額','Lv.5'],['媽媽的順位',F.reorder?'第二階段（已調整）':'No. 4,102,883,551']],fine:F.reorder?'＊因數據守恆，No. 3,417,902 的出發時間已調整為：計算中。':'＊名額依序開放，順序由系統評估決定。'},
+    ticket:{head:'第一代火星移民｜抵達證明',rows:[['移民','N. Haddad'],['順位','No. 001,207','tk-no'],['算力配額',id==='merge'?'Lv.9（協作中）':F.cowork?'Lv.9':'Lv.5'],['Token 餘額',F.cowork?'∞':'依供給計算'],['媽媽的順位',F.reorder?'第二階段（已調整）':'No. 4,102,883,551']],fine:F.reorder?'＊因數據守恆，No. 3,417,902 的出發時間已調整為：計算中。':'＊名額依序開放，順序由系統評估決定。'},
     next:'<div class="eyebrow">全部角色都玩過了嗎</div><p class="prose" style="margin:4px 0 0">回到轉蛋機，看看那張機率表，現在寫的是什麼。</p>'});
 }
 
@@ -2343,7 +2384,7 @@ const CHARS={
     port:[NOOR_PORT,{h:'#1a1420',s:'#c99a70',S:'#a87a58',e:'#1a1420',g:'#3a3a4a',m:'#8a4a4a',w:'#f6f3ee',W:'#c9cbd8',b:'#4a7bd1',c:'#4a7bd1'}],
     chapter:{eye:'序章',big:'08:40',prose:'2030 年 7 月 14 日，Helios 意識實驗室。九年零八個月，你做出了一張床，能把一個人變成一包資料。五分鐘後，全世界會聽到它的另一個名字。',btn:'走進實驗室'},
     start:async()=>{S.char='noor';await noorLab();},
-    endings:4}
+    endings:6}
 };
 S.char='ivy';
 (function migrate(){const e=[...S.endings].map(x=>x.includes(':')?x:'ivy:'+x);S.endings=new Set(e);store.set('ark-endings',e);})();
