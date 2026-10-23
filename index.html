@@ -1565,7 +1565,7 @@ Object.assign(PAL,{
   grey:{h:'#9a9aa8',s:'#c9cbd8',e:'#7a7a88',m:'#9a9aa8',w:'#b0b2c0',b:'#b0b2c0',c:'#b0b2c0',k:'#9a9aa8',d:'#8a8a98'},
   white:{h:'#e6e9f4',s:'#ffffff',e:'#c9cfe6',m:'#e6e9f4',w:'#ffffff',b:'#ffffff',c:'#ffffff',k:'#f0f2f9',d:'#e6e9f4'}
 });
-Object.assign(FACE,{'Darius Vey':'dict','Kael 將軍':'gen','資訊部長':'mini','第一夫人':'wife','Mara':'maid','白色的人':'white'});
+Object.assign(FACE,{'財政部長':'suit','Darius Vey':'dict','Kael 將軍':'gen','資訊部長':'mini','第一夫人':'wife','Mara':'maid','白色的人':'white'});
 
 /* ---------- Dictator act 1: the palace, 02:40 ---------- */
 function buildPalace(){
@@ -1656,6 +1656,18 @@ function buildBalcony(){
   if(F.seats!=='all')objs.push(npc('gen',PAL.gen,2,4,'right',{label:'跟 Kael 將軍說話',mark:true,act:actGen2}));
   objs.push(npc('maid',PAL.maid,8,5,'left',{label:'跟 Mara 說話',mark:true,act:actMaid2}));
   objs.push(npc('mini',PAL.mini,5,6,'up',{label:'簽最後的文件',mark:true,act:actSign}));
+  objs.push(npc('fin',PAL.suit,1,6,'right',{label:'跟財政部長說話',mark:true,act:actFin}));
+}
+async function actFin(){
+  if(F.gold!=null)return;this.mark=false;
+  await say('財政部長','總統，國庫的黃金，還有您在海外的十四個帳戶，都整理好了。');
+  await narr('五十年來，你最相信的東西不是軍隊。軍隊會倒戈，錢不會。');
+  const k=await ask(null,'不管到了哪裡，你都要先確定自己有錢。',['「全部換成 Helios 的資產，跟我一起走。」','「黃金裝箱，跟我上船。」','「留一半給國家。」']);
+  F.gold=['convert','bars','half'][k];
+  if(k===0){await say('財政部長','Helios 回覆：可以。換算之後，會直接計入您的配額。');await narr('你鬆了一口氣。到了那邊，你還是最有錢的人。');}
+  else if(k===1){await say('財政部長','總統……那邊不收行李。意識移轉，只移轉意識。');await narr('你還是讓他裝箱了。兩千四百箱。你想不出還能怎麼辦。');}
+  else{add(2);await narr('財政部長愣了一下，低頭記下來。五十年來，你第一次說「留給國家」。');}
+  setGoal('簽下最後的文件（找資訊部長）',['mini']);
 }
 async function actRail(){this.mark=false;F.rail=true;
   await narr('廣場上點滿了蠟燭。他們在唱國歌，唱完一遍，又從頭開始。');
@@ -1680,7 +1692,8 @@ async function actMaid2(){
   else{add(3);await narr('她看著你，很久。然後她點點頭，把手機收進圍裙口袋。');await say('Mara','謝謝您告訴我。');}
 }
 async function actSign(){
-  if(F.signed!=null)return;this.mark=false;
+  if(F.signed!=null)return;
+  if(F.gold==null){await say('資訊部長','總統，財政部長在等您。錢的事，要在出發前處理好。');return;}this.mark=false;
   await say('資訊部長','總統，Helios 傳來出發前的最後一份文件。');
   await narr('第一條：出發前須完成{{upload|意識移轉}}。');
   await narr('第二條：移轉完成後，您在地球上的軍隊、資產與職權，將由 Helios 全權託管。');
@@ -1702,7 +1715,7 @@ async function dictEarthEnd(){
 async function dictBalcony(){
   newRun(true);S.lumi=false;
   loadMap(BALCONY,5*T+8,4*T+10,'up');show('s-game');busy=true;await wait(300);
-  await narr('出發前夜。廣場上的歌聲，一路傳到陽台上。');setGoal('簽下最後的文件（找資訊部長）',["mini"]);busy=false;
+  await narr('出發前夜。廣場上的歌聲，一路傳到陽台上。');setGoal('先把錢處理好（財政部長），再簽最後的文件',['fin','mini']);busy=false;
 }
 
 /* ---------- Dictator act 3: nobody ---------- */
@@ -1722,18 +1735,40 @@ async function actGate(){this.mark=false;
   await narr('一扇金色的門。門上寫著：「需要算力權限 Lv.9」。');
   await narr('門的另一邊很遠的地方，站著一個人。不是光，是人。有手，有腳，穿著黑色高領。');await narr('在這裡，只有 Token 夠多的人，才買得起一具身體。');
   const k=await ask(null,'他沒有回頭。',['「Vale！」','推門','轉身離開']);
-  if(k===0){add(1);await narr('你的聲音沒有傳出去。這裡的聲音，好像也需要權限。');}
-  else if(k===1){await narr('門沒有把手。');}
+  if(k===1){await narr('門沒有把手。');}
+  if(k===0){F.gateDone=true;
+    await narr('他停下來，回頭。他的聲音直接出現在你的意識裡，很近，很清楚。');
+    await say('Adrian Vale','總統先生。');
+    await say('Adrian Vale','我不是讓你移民上來了嗎？');
+    const q=await ask(null,'他在笑。跟那天晚上的視訊一模一樣。',['「我的錢呢？」','「我的軍隊呢？我的人呢？」','「給我一具身體。」']);
+    if(q===0){await say('Adrian Vale','在這裡，錢就是算力。您的算力，是您自己換來的。');if(F.gold==='convert')await say('Adrian Vale','您簽了託管，記得嗎？第二條。');}
+    else if(q===1){await say('Adrian Vale','名單是您自己填的，總統先生。12 個。');await say('Adrian Vale','我說過，這裡不需要軍隊。');}
+    else{await say('Adrian Vale','3 Token 一小時。很公道。');}
+    await narr('他轉回去了。金色的門，從頭到尾沒有打開。');}
+  dictGoal();
 }
+function dictGoal(){if(F.cellSeen)return;const t=!F.termDone,g=!F.gateDone;
+  setGoal(t?'先確認你的錢（服務台）':g?'去找 Vale（上面的金色的門）':'找到屬於你的區域',[t&&'term',g&&'gate','cell'].filter(Boolean));}
 async function actTerm(){this.mark=false;
   await say('Lumi','歡迎抵達，D. Vey！您的{{quota|算力配額}}：Lv.2。');
   const k=await ask(null,'服務台上的 Lumi 是金色的。比地球上那個好看。',['「我要見負責人。」','「我是卡索共和國的總統。」','「我的軍隊呢？」']);
   if(k===0){await say('Lumi','查無此{{perm|權限}}。');}
   else if(k===1){await say('Lumi','查無此國家。');await narr('它說得很有禮貌。');}
   else{await say('Lumi','您在地球的資產已由 Helios 全權託管！您的軍隊，目前編號為：地球資產 KS-0038。');}
+  await narr('你問的第一件事，是你的錢。');
+  if(F.gold==='convert'){await say('Lumi','您的黃金與海外帳戶，已完成換算！');await say('Lumi','依據託管條款第二條，換算後資產由 Helios 全權託管。入帳：0 {{token|Token}}。');}
+  else if(F.gold==='bars'){await say('Lumi','您在地球的 2,400 箱黃金，已登記為地球資產 KS-0038-G！');await say('Lumi','黃金在新世界沒有用途喔！');}
+  else if(F.gold==='half'){await say('Lumi','您帶來的一半，已依託管條款由 Helios 管理！');await say('Lumi','您留給卡索的一半，也已一併託管。卡索目前的管理者是：AI 大人。');await narr('你留給國家的那一半，也沒有留在國家。');}
   await say('Lumi','需要身體嗎？{{inject|Inject}} 一具人形，每小時 3 {{token|Token}}。您目前的 Token：2。');
   await narr('你統治過四千萬人。現在，你買不起一個小時的手腳。');
+  const p=await ask(null,'那就找人。你的人。',['「找我的資訊部長。」','「找我的衛隊長。」','「找 Mara。」']);
+  if(p===0)await say('Lumi','查詢結果：資訊部長｜地球｜順位 No. 18,220,417｜預計出發時間：計算中。');
+  else if(p===1)await say('Lumi','查詢結果：衛隊長｜已登記為地球資產 KS-0038-A（軍隊）。');
+  else await say('Lumi','查詢結果：Mara｜地球｜順位 No. 2,904,118,330｜預計出發時間：計算中。');
+  await say('Lumi','您的隨行名單共 12 人，不包含此人員喔！');
+  await narr('名單是你自己填的。你填的時候，沒有想到他們。');
   await say('Lumi','祝您在新世界有美好的永恆！');
+  F.termDone=true;dictGoal();
 }
 async function actStatues(){
   await narr('Kael 將軍和另一個將軍，是兩串很暗的 0 和 1，一閃一閃的，像快要沒電的燈泡。');
@@ -1761,7 +1796,8 @@ async function actOther(){this.mark=false;
   else{add(2);await say('白色的人','我以前是石油公司的董事長。現在是 Lv.3。');await say('白色的人','我們這種人，帶過來的都是換算的結果。');}
 }
 async function actCell(){
-  this.mark=false;
+  if(!F.termDone||!F.gateDone){await narr('你習慣先處理錢和人，再處理自己。'+(!F.termDone?'先去服務台。':'先去找 Vale。'));return;}
+  this.mark=false;F.cellSeen=true;
   await narr('地上有一個金色的框，四公尺見方。框的角落寫著：「D. Vey｜4 ㎡」。');
   await narr('這是你的區域。你的國家曾經有十八萬平方公里。');
   const k=await ask(null,'你站在框的中間。',['在這裡做一張王座','走出去，跟其他人一樣','「我要回地球。」']);
@@ -1775,7 +1811,8 @@ async function dictNew(){
   loadMap(NEWWORLD,6*T+8,9*T+10,'up');show('s-game');busy=true;await wait(300);
   await narr('你醒了。沒有心跳，沒有重量。你低頭想看自己的手，沒有手。你是一串很淡的 0 和 1。');
   await narr('你想往前，就往前了。不用走，也不用人扶。你想喊人，然後想起來：這裡沒有你的人。');
-  await narr('你習慣性地開口：「我要見負責人。」沒有人回答。');setGoal('找到屬於你的區域',["cell"]);busy=false;
+  await narr('你習慣性地開口：「我要見負責人。」沒有人回答。');
+  await narr('先確定錢。再找 Vale。再找你的人。五十年來，你都是這個順序。');dictGoal();busy=false;
 }
 function finishDict(id){
   recordEnding('dict',id);
@@ -1785,7 +1822,7 @@ function finishDict(id){
     earth:['最後的王座','你沒有簽名，留在地球。AI 大人不承認任何國家。總統府的燈熄掉之後，你坐在黑暗裡，還是總統。']}[id];
   showEnd({eye:'獨裁者的故事　完',title:E[0],sum:E[1],
     ticket:id==='earth'?{head:'第一代火星移民｜預約單',rows:[['預約人','D. Vey'],['順位','No. 000,038','tk-no'],['狀態','已放棄']],fine:'＊名額已轉給下一位。地球託管單位：AI 大人'}
-      :{head:'第一代火星移民｜抵達證明',rows:[['移民','D. Vey'],['順位','No. 000,038','tk-no'],['算力配額','Lv.2'],['權限','無']],fine:'＊您在地球的軍隊、資產與職權，已由 Helios 全權託管。'},
+      :{head:'第一代火星移民｜抵達證明',rows:[['移民','D. Vey'],['順位','No. 000,038','tk-no'],['算力配額','Lv.2'],['帶上來的錢',{convert:'0 Token（已託管）',bars:'黃金 2,400 箱（留在地球）',half:'0 Token（已託管）'}[F.gold]||'2 Token'],['權限','無']],fine:'＊您在地球的軍隊、資產與職權，已由 Helios 全權託管。'},
     next:'<div class="eyebrow">你知道嗎</div><p class="prose" style="margin:4px 0 0">地球上，第 7 資料中心的機櫃 R-1，名牌上寫的就是你。有一個外送員，每天幫你擦散熱濾網。</p>'});
 }
 
