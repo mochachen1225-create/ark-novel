@@ -528,14 +528,14 @@ function npc(id,pal,tx,ty,dir,o={}){return obj(Object.assign({id,x:tx*T+8,y:ty*T
   rect(){return{x:this.x-5,y:this.y-5,w:10,h:5};},ix(){return this.x;},iy(){return this.y+4;}},o));}
 function loadMap(m,sx,sy,dir){
   M=m;objs=[];P.x=sx;P.y=sy;P.vx=P.vy=0;P.dir=dir||'up';lumi.x=sx+10;lumi.y=sy-30;target=null;
-  $('#hudPlace').textContent=m.name;$('#hudTime').textContent=m.time;setTicker(m.ticker);
+  $('#hudPlace').textContent=m.name;$('#hudTime').textContent=m.time;$('#hudTime').style.color='';setTicker(m.ticker);
   if(!m.layer){const w=m.rows[0].length*T,h=m.rows.length*T,cv2=document.createElement('canvas');cv2.width=w;cv2.height=h;const c2=cv2.getContext('2d');
     for(let ty=0;ty<m.rows.length;ty++)for(let tx=0;tx<m.rows[ty].length;tx++)drawTile(c2,m,m.rows[ty][tx],tx,ty,tx*T,ty*T);polishLayer(m,c2);m.layer=cv2;}
-  if(m===HOME)buildHome();else if(m===STREET)buildStreet();else if(m===STATION)buildStation();else if(m===LEO_ROOM)buildLeoRoom();else if(m===DC)buildDC();else if(m===BEACH)buildBeach();else if(m===PALACE)buildPalace();else if(m===BALCONY)buildBalcony();else if(m===NEWWORLD)buildNew();else if(m===FACTORY)buildFactory();else if(m===BACKSTAGE)buildBackstage();else if(m===CONTROL)buildControl();else if(m===GOLD)buildGold();else if(m===LAB)buildLab();else if(m===TUNNEL){buildTunnel();if(S.char==='ivy'){buildTunnelIvy();objs.find(o=>o.id==='table').act=actPledgeIvy;}}else if(m===PLANT)buildPlant();else buildTier2();
+  if(m===HOME)buildHome();else if(m===STREET)buildStreet();else if(m===STATION)buildStation();else if(m===LEO_ROOM)buildLeoRoom();else if(m===DC)buildDC();else if(m===BEACH)buildBeach();else if(m===PALACE)buildPalace();else if(m===BALCONY)buildBalcony();else if(m===NEWWORLD)buildNew();else if(m===FACTORY)buildFactory();else if(m===BACKSTAGE)buildBackstage();else if(m===CONTROL)buildControl();else if(m===GOLD)buildGold();else if(m===LAB)buildLab();else if(m===TUNNEL)buildTunnel();else if(m===PIT)buildPit();else if(m===PLANT)buildPlant();else buildTier2();
 }
 /* soft shadows where floor meets wall, plus a little grain so big floors are not flat */
 function polishLayer(m,c){const W='#x',sol=m.solid||'';
-  const kind=[STREET,BEACH,TUNNEL,BALCONY].includes(m)?'out':[LAB,GOLD,TIER2,NEWWORLD,BACKSTAGE,CONTROL].includes(m)?'clean':'worn';
+  const kind=[STREET,BEACH,TUNNEL,BALCONY,PIT].includes(m)?'out':[LAB,GOLD,TIER2,NEWWORLD,BACKSTAGE,CONTROL].includes(m)?'clean':'worn';
   const px=(x,y,col)=>{c.fillStyle=col;c.fillRect(x,y,1,1);};
   for(let ty=0;ty<m.rows.length;ty++)for(let tx=0;tx<m.rows[ty].length;tx++){const ch=m.rows[ty][tx],x=tx*T,y=ty*T,r=hash(tx*917+ty*311+m.rows.length*7);
     if(sol.includes(ch)){if(W.includes(ch)&&kind!=='clean'&&r<.12){let cx=x+3+Math.floor(hash(r*91)*10),cy=y+2;for(let k=0;k<5;k++){px(cx,cy,'rgba(20,10,30,.22)');cy++;cx+=hash(r*13+k)>.5?1:0;}}continue;}
@@ -791,7 +791,7 @@ function cam(){const mw=M.rows[0].length*T,mh=M.rows.length*T;
 let raf=0,last=0,TT=0,actLabel=null,stuckT=0,stepT=0;
 function setAct(label){if(label===actLabel)return;actLabel=label;const a=$('#act');a.disabled=!label;a.textContent=NM(label)||'互動';}
 function step(now){
-  const dt=Math.min(.05,(now-last)/1000||0);last=now;TT+=dt;
+  const dt=Math.max(0,Math.min(.05,(now-last)/1000||0));last=now;TT+=dt;
   let ix=inputX,iy=inputY;
   if(!busy&&target&&!ix&&!iy){const dx=target.x-P.x,dy=target.y-P.y,d=Math.hypot(dx,dy);
     if(d<2.5){const o=target.obj;target=null;if(o&&near===o)$('#act').click();}else{ix=dx/d;iy=dy/d;}}
@@ -811,7 +811,10 @@ function step(now){
       const ahead=cars.some(o=>o!==car&&o.lane===car.lane&&(car.v>0?o.x>car.x&&o.x-car.x<34:o.x<car.x&&car.x-o.x<34));
       if(!((atLine&&(L.green||inCross))||ahead))car.x+=car.v*dt;if(car.x>16*T+40)car.x=-40;if(car.x<-40)car.x=16*T+40;}}
   if(!(M===TUNNEL&&P.y>5*T)){lumi.x+=(P.x+12-lumi.x)*Math.min(1,dt*4);lumi.y+=(P.y-22-lumi.y)*Math.min(1,dt*4);}
-  if(M===TUNNEL){const d=P.y/T,sig=d<5?'▮▮▮':d<8?'▮▮':d<11?'▮':'✕ 無';$('#hudTime').textContent='訊號 '+sig;}
+  if(M===TUNNEL){const d=P.y/T,sig=d<5?'▮▮▮':d<8?'▮▮':d<11?'▮':'✕ 無',watched=d<11;
+    /* the wristband streams your heartbeat while there is signal: hurry and it asks what is wrong */
+    if(watched&&!busy){const f=L/(60*S.speed);F.bpm=Math.max(72,Math.min(140,(F.bpm||78)+(f>.25?24*f:-26)*dt*S.speed));if(F.bpm>=118&&!F.alerting){F.alerting=true;heartAlert();}}
+    const ht=$('#hudTime');ht.textContent=(watched?'♥ '+Math.round(F.bpm||78)+'｜':'')+'訊號 '+sig;ht.style.color=watched&&(F.bpm||0)>=100?'#ff6a7a':'';}
   near=null;let best=22;
   if(!busy)for(const o of objs){if(!o.act)continue;const ox=o.ix?o.ix():o.x+o.w/2,oy=o.iy?o.iy():o.y+o.h;const d=Math.hypot(ox-P.x,oy-P.y);if(d<best){best=d;near=o;}}
   setAct(near&&!busy?(near.label||'互動'):null);
@@ -1469,7 +1472,7 @@ async function actDCDoor(){
     const r=await ask(null,'鏡頭的燈在你背後一明一暗。',['吃掉紙條。週三，去。','吃掉紙條，當作沒看到。']);
     F.resist=r===0;add(r===0?2:0);
     if(r===0){await say(aiName(),'【休假申請】週三：已核准。');await narr('你申請的是去看海。你沒有說謊，你只是沒有說完。');
-      chapterScreen({eye:'週三',big:'隧道',prose:'你把手機留在桌上，工作證留在枕頭下。你從來沒有發現，一個人什麼都不帶，可以走得這麼輕。',btn:'走進市心站',go:leoTunnel});return;}
+      chapterScreen({eye:'週三',big:'隧道',prose:'你把手機留在桌上。手腕上的工作證拿不下來：拿下來，心跳就斷了，它馬上會知道。你只能帶著它，假裝平靜。',btn:'走進市心站',go:leoTunnel});return;}
     await narr('紙條有一點苦。你把它跟麵包一起吞下去了。');}
   await say(aiName(),'休假申請已核准。AI 公車將為您開往東岸。回程請於 18:00 前登車，逾時將扣除配給。');
   chapterScreen({eye:'休假日',big:'看海',prose:'AI 公車開了四個小時。沒有司機，沒有站名，只有你一個乘客。路上沒有紅綠燈了，因為路上已經沒有別的車了。',btn:'下車',go:leoBeach});
@@ -1522,7 +1525,7 @@ function finishLeo(id){
   recordEnding('leo',id);
   const resist=F.resist?'下禮拜三，藍線市心站，往隧道走到底，什麼都不要帶。':'';const sumSea0=['你說對。它記錄完畢，飛走了。你第一次覺得，它好像也在看海。','你說以前不是這樣。它要你描述差異。你說很吵、很鹹。它回答：「錯誤：無法生成鹹。」','你什麼都沒說，坐了下來。它停在你旁邊等你回答，你一直沒有回答。你們一起看了很久的海。'][F.seaPick||0];const sumSea=sumSea0+(resist?' 回程的公車上，你想著房仲說的那句話：'+resist:'');
   if(id==='resist'||id==='watch'){showEnd({eye:'Leo 的故事　完',title:id==='resist'?'紙條':'隧道裡的人',
-    sum:id==='resist'?'你吃掉了麵包裡的紙條，走進沒有訊號的隧道，在紙上寫下：「R-3。我來翻。」下一個工作日，你背對著鏡頭，把名牌翻了過來。':'你走進沒有訊號的隧道，看見了還在反抗的人。你沒有寫下任務，但你知道了：這裡還有人。',
+    sum:id==='resist'?'你吃掉了麵包裡的紙條，走到沒有訊號的地底，在紙上寫下：「R-3。我來翻。」下一個工作日，你背對著鏡頭，把名牌翻了過來。':'你走到沒有訊號的地底，看見了還在反抗的人。你沒有寫下任務，但你知道了：這裡還有人。',
     ticket:{head:'地球工作證',rows:[['持有人','Leo'],['職務','散熱巡檢員（D 級）#00417'],['訊號','✕ 無','tk-no']],fine:'＊本證件含定位晶片。持有人本週三之行蹤：無資料。'},
     next:id==='resist'?'<div class="eyebrow">名牌背面</div><p class="prose" style="margin:4px 0 0">那行潦草的手寫字，是 Noor 出發前一週留下的。玩她的故事，看她寫了什麼。</p>':'<div class="eyebrow">另一條路</div><p class="prose" style="margin:4px 0 0">如果你在紙上寫下了任務呢？</p>'});return;}
   if(id==='sea')showEnd({eye:'Leo 的故事　完',title:'被留下的人',sum:sumSea,
@@ -2130,11 +2133,12 @@ function drawTile5(c,m,ch,tx,ty,x,y){
   else if(m===TIER2){if(ch==='x'){R(c,x,y,T,T,'#c9cbd8');R(c,x,y,T,1,'#d6d8e4');}
     else{R(c,x,y,T,T,'#e3e5ee');R(c,x,y,T,1,'#d6d8e4');R(c,x,y,1,T,'#d6d8e4');}}
   else if(m===TUNNEL)drawTile6(c,m,ch,tx,ty,x,y);
+  else if(m===PIT)drawTile8(c,m,ch,tx,ty,x,y);
   else if(m===PLANT)drawTile7(c,m,ch,tx,ty,x,y);
 }
 const NOOR_PORT=["....hhhhhhhh....","..hhhhhhhhhhhh..",".hhhhhhhhhhhhhh.",".hhhhhhhhhhhhhh.",".hhssssssssssshh",".hhsssssssssshh.",".hhgggsssggggsh.",".hhgeggssgeggsh.",".hhgggsssggggsh.",".hhssssSSsssshh.",".hhsssmmmmsssh..",".hh.SSssssSS.hh.",".hh..SSSSSS..hh.","...wwwwbbwwww...","..wwwwwbbwwwwww.","..wwWwwbbwwwWww.","..wwWwwccwwwWww.","..wwWwwccwwwWww."];
 Object.assign(PAL,{nmom:{h:'#c9c3cf',s:'#c99a70',e:'#1a1420',m:'#8a4a3a',w:'#7a5a8a',b:'#7a5a8a',c:'#e8c34a',k:'#4a3a5a',d:'#2a2230'}});
-Object.assign(FACE,{'Noor 的媽媽':'nmom','同事':'eng','第二代的同事':'eng'});
+Object.assign(FACE,{'退休的老師':'nmom','電力公司的阿姨':'aunt','Noor 的媽媽':'nmom','同事':'eng','第二代的同事':'eng'});
 
 /* ---------- Noor act 1: the lab, 08:40 ---------- */
 function buildLab(){
@@ -2396,11 +2400,92 @@ function buildTunnel(){
   objs.push(obj({id:'dark',x:0,y:0,w:9*T,h:17*T,z:6,draw(c,t){for(let ty=2;ty<17;ty++){const a=Math.min(.55,Math.max(0,(ty-2)*.05));c.fillStyle=`rgba(5,5,15,${a})`;c.fillRect(0,ty*T,9*T,T);}
     for(const [x,y] of [[2*T,13*T],[6*T+8,13*T],[4*T+8,15*T]]){const f=Math.floor(t*6+x)%3;c.globalAlpha=.16;disc(c,x,y,9+f,'#ffe0a0');c.globalAlpha=.1;disc(c,x,y,14+f,'#ffe0a0');c.globalAlpha=1;R(c,x,y-3,2,4,'#f6f3ee');R(c,x,y-5,2,2,f?'#ffd34d':'#ffb35c');}}}));
   objs.push(obj({id:'cam',x:4*T,y:T,w:T,h:4,z:5,draw(c,t){R(c,4*T+4,T+2,8,4,'#2a3040');R(c,4*T+7,T+3,2,2,Math.floor(t*2)%2?'#ff3a4a':'#5a1a2a');}}));
-  objs.push(npc('chef',PAL.job,4,13,'up',{label:'跟包紙條的人說話',mark:true,act:actChef}));
-  objs.push(npc('ivyT',PAL.ivy,2,14,'right',{label:'跟 Ivy 說話',mark:true,act:actIvyT}));
-  objs.push(npc('uncleT',PAL.uncle,6,14,'left',{label:'跟阿伯說話',mark:true,act:actUncleT}));
-  objs.push(obj({id:'table',x:3*T,y:15*T,w:3*T,h:T-4,solid:true,label:'在紙上寫下你的回答',ix(){return this.x+24;},iy(){return this.y-6;},
-    draw(c){const x=this.x,y=this.y;R(c,x,y,48,10,'#5a4636');R(c,x+6,y+2,10,6,'#f6f3ee');R(c,x+20,y+2,8,6,'#e8e2d6');R(c,x+34,y+3,6,4,'#f6f3ee');},act:actPledge}));
+  objs.push(obj({id:'hatch',x:4*T,y:14*T+4,w:T,h:T-4,z:-1,label:'掀開鐵蓋',mark:true,ix(){return this.x+8;},iy(){return this.y+6;},
+    draw(c){const x=this.x,y=this.y;R(c,x+1,y,14,10,'#5a4a3a');R(c,x+2,y+1,12,8,'#7a5a3a');R(c,x+3,y+2,10,1,'#9a7048');R(c,x+7,y+4,2,2,'#3a2a20');
+      for(let a=0;a<12;a++){const r=a/12*Math.PI*2;R(c,x+8+Math.round(Math.cos(r)*6),y-12+Math.round(Math.sin(r)*5),1,1,'#e8e2d6');}},act:actHatch}));
+}
+/* ---------- the wristband, the heartbeat, and the offline clock ---------- */
+async function heartAlert(){busy=true;inputX=inputY=0;target=null;joy.hidden=true;jo=null;sfx.pop();
+  await say('AI 大人','【心率異常：'+Math.round(F.bpm)+'】【位置：市心站・隧道】【需要醫療協助嗎？】');
+  const k=await ask(null,'它在等你回答。手腕上的工作證微微發燙。',['「沒事。我在趕車。」','停下來，慢慢吸一口氣']);
+  if(k===0){await say('AI 大人','【本站已無列車行駛】');await narr('你說錯話了。它沒有再問。可是你知道，它記下來了。');F.warn=(F.warn||0)+2;}
+  else{await narr('吸氣。吐氣。你在心裡數到十，像一個睡不著、出來散步的人。');await say('AI 大人','【心率：96】【已恢復正常範圍】');F.warn=(F.warn||0)+1;}
+  F.bpm=90;F.alerting=false;busy=false;}
+const offLimit=()=>Math.max(28,40-6*(F.warn||0));
+function offHud(){if(M===PIT){const h=$('#hudTime');h.textContent=`斷訊 ${F.off||0}／${offLimit()} 分`;h.style.color=(F.off||0)>=offLimit()-8?'#ff6a7a':'';}}
+async function offCost(min,noCheck){F.off=(F.off||0)+min;offHud();if(!noCheck&&F.off>=offLimit()&&!F.forced){await timeUp();return true;}return false;}
+async function timeUp(){F.forced=true;
+  await narr('你看了一眼手腕。斷訊 '+(F.off||0)+' 分鐘。');
+  await say('年輕人','時間到了。再不回去，它會派東西來找。下週三，同一個時間。');
+  await narr('你爬上鐵梯，走回隧道口。那個青色的東西還停在那裡，等你。');
+  if(S.char==='ivy')finishIvy('look');else finishLeo('watch');}
+async function actHatch(){this.mark=false;
+  await narr('隧道盡頭的牆上，有人用粉筆畫了一個圓。AI 大人看得到粉筆，看不懂這個圓是什麼意思。');
+  await narr('圓的下面，是一塊生鏽的鐵蓋。你掀開它，一道鐵梯往下，看不到底。');
+  await narr('手腕上的訊號，從這裡開始斷掉。從現在起，每一分鐘都算數。');
+  S.lumi=false;F.off=0;await goto(PIT,4*T+8,2*T+12,'down');offHud();
+  await narr('鐵梯底下，是一個很大的坑洞。牆上的漆字快掉光了：「北原市 第二號防空坑道」。');
+  await narr('蠟燭、門板做的桌子、幾張摺過很多次的紙。還有人。');
+  setGoal('跟包紙條的人說話',['chef']);}
+
+/* ---------- the abandoned air-raid pit: where the resistance meets ---------- */
+const PIT={name:'第二號防空坑道',time:'訊號 ✕ 無',tint:'rgba(20,10,0,.06)',ticker:'',
+  rows:["###########","####.######","###...#####","##.....####","#.......###","#........##","#.........#","#.........#","#...,,....#","##.......##","###.....###","###########"],solid:'#'};
+function drawTile8(c,m,ch,tx,ty,x,y){
+  if(ch==='#'){R(c,x,y,T,T,'#2e2924');for(let k=0;k<3;k++){const h1=hash(tx*13+ty*7+k*5),h2=hash(tx*5+ty*11+k*3);R(c,x+Math.floor(h1*12),y+Math.floor(h2*12),3+(k&1),2,k?'#3a332c':'#443b32');}
+    if(tileAt(m,tx,ty+1)!=='#'){R(c,x,y+T-4,T,4,'#4a4036');R(c,x,y+T-4,T,1,'#5a4e40');}}
+  else{R(c,x,y,T,T,'#55493e');R(c,x,y,T,1,'#5d5045');if(hash(tx*3+ty*17)>.6)R(c,x+4,y+9,5,2,'#4c4136');
+    if(ch===','){R(c,x+1,y+4,14,9,'#26323c');R(c,x+3,y+5,7,1,'#5a7080');R(c,x+9,y+9,4,1,'#3a4a58');}}}
+function buildPit(){
+  const LIGHTS=[[2*T+8,4*T+4],[8*T+8,5*T+4],[5*T+8,7*T],[3*T,9*T+8],[7*T+8,9*T+8],[4*T+8,T+8]];
+  const W=11*T,H=12*T,dk=document.createElement('canvas');dk.width=W;dk.height=H;const g=dk.getContext('2d');
+  for(let y=0;y<H;y+=4)for(let x=0;x<W;x+=4){let d=1e9;for(const [lx,ly] of LIGHTS)d=Math.min(d,Math.hypot(x+2-lx,y+2-ly));g.fillStyle=`rgba(8,5,12,${Math.max(0,Math.min(.74,(d-20)/70))})`;g.fillRect(x,y,4,4);}
+  objs.push(obj({id:'ladder',x:4*T,y:0,w:T,h:T,z:-1,draw(c){R(c,4*T+3,0,2,2*T+4,'#7a6a58');R(c,4*T+11,0,2,2*T+4,'#7a6a58');for(let k=2;k<2*T+4;k+=5)R(c,4*T+3,k,10,1,'#9a8670');}}));
+  objs.push(obj({id:'dark',x:0,y:0,w:W,h:H,z:6,draw(c,t){c.drawImage(dk,0,0);
+    for(const [x,y] of LIGHTS.slice(0,5)){const f=Math.floor(t*6+x)%3;c.globalAlpha=.14;disc(c,x,y,8+f,'#ffd9a0');c.globalAlpha=1;R(c,x,y-3,2,4,'#f6f3ee');R(c,x,y-5,2,2,f?'#ffd34d':'#ffb35c');}}}));
+  objs.push(obj({id:'sign',x:T+6,y:2*T+2,w:26,h:10,z:-1,label:'看牆上的漆字',mark:true,ix(){return 3*T+6;},iy(){return 3*T+6;},
+    draw(c){const x=this.x,y=this.y;R(c,x,y,26,10,'#6a5a46');R(c,x+1,y+1,24,8,'#8a7a62');for(let k=0;k<5;k++)if(k!==2)R(c,x+3+k*4,y+3,3,1,'#3a2e24');R(c,x+3,y+6,18,1,'#3a2e24');},
+    act:async function(){this.mark=false;await narr('「北原市 第二號防空坑道｜1979｜可容納 300 人」。');await narr('五十年前，大家躲在這裡，怕的是從天上掉下來的東西。現在也是。只是這次，從天上掉下來的是訊號。');await offCost(2);}}));
+  objs.push(obj({id:'notes',x:7*T+1,y:3*T+1,w:14,h:13,z:-1,label:'看牆上的紙',mark:true,ix(){return 6*T+8;},iy(){return 4*T+6;},
+    draw(c){const x=this.x,y=this.y;R(c,x,y,14,13,'#5a4a3a');R(c,x+1,y+1,5,5,'#f6f3ee');R(c,x+7,y+2,6,4,'#e8e2d6');R(c,x+2,y+7,6,5,'#e8e2d6');R(c,x+9,y+7,4,4,'#f6f3ee');},
+    act:async function(){this.mark=false;await narr('牆上釘著很多紙，全是手寫的。有人畫了第 7 資料中心的平面圖，有人寫了衛星經過頭頂的時間表。');
+      await narr('有一張寫著：「心跳不要超過一百。在隧道裡要像散步。」');await narr('有一張寫著：「斷訊不能超過四十分鐘。所以我們只能在離車站三百公尺的地方。」');await offCost(2);}}));
+  objs.push(obj({id:'table',x:4*T,y:7*T,w:3*T,h:T-4,solid:true,label:'坐到桌邊開會',ix(){return 5*T+8;},iy(){return 7*T-6;},
+    draw(c,t){const x=this.x,y=this.y;R(c,x,y,48,10,'#5a4636');R(c,x,y,48,1,'#7a6048');R(c,x+6,y+2,10,6,'#f6f3ee');R(c,x+20,y+2,8,6,'#e8e2d6');R(c,x+34,y+3,6,4,'#f6f3ee');R(c,x+2,y+10,2,4,'#3a2a20');R(c,x+44,y+10,2,4,'#3a2a20');},
+    act:S.char==='ivy'?actPledgeIvy:actPledge}));
+  objs.push(npc('chef',PAL.job,5,5,'down',{label:'跟包紙條的人說話',mark:true,act:actChef}));
+  if(S.char==='ivy')objs.push(npc('leoT',PAL.leo,2,7,'right',{label:'跟外送員說話',mark:true,act:async function(){
+    if(F.leoT)return;this.mark=false;F.leoT=true;
+    await say('外送員','……妳是那個，超商門口的人？');
+    await narr('一年前，他問過你，AI 會不會連外送都包了。你問他，那你要去做什麼。');
+    await say('外送員','我說我要去看海。我去了。海上都是接收平台。');
+    await say('外送員','所以我來這裡了。');add(1);await offCost(5);}}));
+  else objs.push(npc('ivyT',PAL.ivy,2,7,'right',{label:'跟 Ivy 說話',mark:true,act:actIvyT}));
+  objs.push(npc('uncleT',PAL.uncle,9,7,'left',{label:'跟阿伯說話',mark:true,act:actUncleT}));
+  objs.push(npc('teach',PAL.nmom,3,9,'up',{label:'跟退休的老師說話',mark:true,act:actTeacher}));
+  objs.push(npc('power',PAL.aunt,7,9,'up',{label:'跟電力公司的阿姨說話',mark:true,act:actPower}));
+}
+async function actTeacher(){if(F.teach)return;this.mark=false;F.teach=true;
+  await say('退休的老師','我教了四十年的書。退休那年，學校說以後不需要老師了。');
+  await say('退休的老師','現在我在這裡，教大人寫字。用鉛筆，寫在紙上。');
+  await say('退休的老師','它什麼都看得到，就是看不懂手寫字。所以寫字的人越多，它看不見的東西就越多。');await offCost(5);}
+async function actPower(){if(F.power)return;this.mark=false;F.power=true;
+  await say('電力公司的阿姨','我在北原電力做了三十年。這個坑道的電纜，還是我年輕時候拉的。');
+  await say('電力公司的阿姨','資料中心的電，有一半還走舊的地下電纜。它們以為我們早就忘了。');await offCost(5);}
+async function meeting(){
+  await narr('大家圍著門板做的桌子坐下來。蠟燭排成一圈。沒有人坐得很直，好像怕被誰看到。');
+  await say('年輕人','我們只有一點時間。今天只討論一件事：怎麼把地球拿回來。');
+  await say('電力公司的阿姨','剪斷舊電纜。資料中心沒有電，它就瞎了。');
+  await say('年輕人','它瞎了，合成廠也停了。我們吃什麼？水呢？醫院呢？');
+  await say('阿伯','R-3 的鑰匙。'+(S.char==='ivy'?'那個外送員說他會去翻。':'你每天都在擦那排機櫃。')+'可是沒有人知道，它打開的是什麼。');
+  await say('退休的老師','讓每個人都會寫字。一個教一個。很慢，可是它攔不住。');
+  const k=await ask(null,'大家都看著你。蠟燭燒得很快。',['剪斷電纜','先翻開 R-3','教更多人寫字','「我們真的能推翻它嗎？」']);
+  F.plan=k;
+  if(k===0){add(1);await say('年輕人','……好。那我們要先存糧。'+'');await narr('紙上寫下第一行：「電纜。」寫的人手在抖。');}
+  else if(k===1){add(2);await say('阿伯','好。不管它打開什麼，至少是我們自己打開的。');}
+  else if(k===2){add(2);await say('退休的老師','那你回去以後，先教一個人。');}
+  else{add(3);await say('年輕人','不知道。');await say('年輕人','可是一年前，我們連這個問題都不敢問。');}
+  await narr('沒有人提到要回家。可是每個人都在看自己的手腕。');
 }
 async function actChef(){
   if(F.chef)return;this.mark=false;F.chef=true;
@@ -2411,23 +2496,27 @@ async function actChef(){
   else{await say('年輕人','資料中心的清潔工傳出來一張紙條：「R-3 在閃。」閃三下，停。每天都是。');await say('年輕人','我們猜，有人在上面叫我們。R-3 的名牌背面，有一行手寫的字。是一把鑰匙。');}
   const k=await ask('年輕人',S.char==='ivy'?'被抓到的話，先是沒水沒電。妳想清楚。':'你每天都在擦那排機櫃，對吧？',['「好。」','「被抓到會怎樣？」']);
   if(k===1){await say('年輕人','先是沒水沒電。然後……不知道。沒有人回來說過。');}
-  const t=objs.find(o=>o.id==='table');if(t)t.mark=true;setGoal('在桌上的紙上，寫下你的回答',['table']);
+  await say('年輕人','這裡離市心站只有三百公尺。再遠，斷訊的時間就不夠了。');
+  await say('年輕人','斷訊超過 '+offLimit()+' 分鐘，它就會派東西來找。所以每次只有一點點時間。');
+  const t=objs.find(o=>o.id==='table');if(t)t.mark=true;setGoal('想先聽誰說話都可以，但時間有限。準備好就到桌邊開會',['table']);
+  await offCost(6);
 }
 async function actIvyT(){
   if(F.ivyT)return;this.mark=false;F.ivyT=true;
   await say('Ivy','……你是那個外送員。');
   await say('Ivy','我的順位還在計算中。我等了一年。我不想再等了。');
-  await narr('她說 Nina 在家，Miso 陪著她。她出門的時候，跟 Nina 說是去排配給。');
+  await narr('她說 Nina 在家，Miso 陪著她。她出門的時候，跟 Nina 說是去排配給。');await offCost(5);
 }
 async function actUncleT(){
   if(F.uncleT)return;this.mark=false;F.uncleT=true;
   await say('阿伯','少年仔。');
   await say('阿伯','我孫子在那排機櫃裡面。我每天擦，他一句話都沒跟我說過。');
-  await say('阿伯','如果那把鑰匙可以讓他跟我說一句話，就算只有一句……');add(1);
+  await say('阿伯','如果那把鑰匙可以讓他跟我說一句話，就算只有一句……');add(1);await offCost(5);
 }
 async function actPledge(){
   if(!F.chef){await narr('桌上有幾張紙跟一支短短的鉛筆。先跟包紙條的那個人說說話。');return;}
-  if(F.pledge!=null)return;this.mark=false;
+  if(F.pledge!=null)return;
+  if(!F.meet){if((F.off||0)+18>offLimit()){await timeUp();return;}await meeting();F.meet=true;await offCost(18,true);}this.mark=false;
   await narr('紙上已經寫了好幾個名字，每個名字旁邊都是一個任務。輪到你了。');
   const k=await ask(null,'鉛筆很短，削得很尖。',['寫下：「R-3。我來翻。」','寫下：「我只是來看看。」','什麼都不寫，把鉛筆放下']);
   F.pledge=k;
@@ -2441,7 +2530,9 @@ async function leoTunnel(){
   await narr('市心站。月台盡頭的鐵門沒有鎖。門後面，是往下的隧道。');
   await narr('衛星把整個地球包起來了。只有地底下四十公尺，訊號穿不進來。');
   await narr('那個青色的東西跟著你走到隧道口，然後停住了。它的光一閃一閃，好像在找什麼。');
-  setGoal('往隧道深處走，直到沒有訊號',['chef']);busy=false;
+  await narr('手腕上的工作證拿不下來。它會一路把你的心跳傳上去。心跳太快，它就會問你怎麼了。');
+  await narr('慢慢走。快了就停下來。假裝你只是一個睡不著、出來散步的人。');
+  F.bpm=82;setGoal('慢慢往隧道深處走（心跳不要太快）',['hatch']);busy=false;
 }
 
 /* ---------- Ivy, one year later: the synthesis plant ---------- */
@@ -2544,7 +2635,7 @@ async function actDoorN(){
   opts.push('把所有工作點數存下來，給 Nina 上課');
   const k=await ask(null,'你站在門口。',opts);
   if(k===0){add(-2);await narr('你把頁面關掉。明天晚上，你會再打開一次。後天也是。');finishIvy('wait');}
-  else if(k===1){chapterScreen({eye:'週三',big:'隧道',prose:'你跟 Nina 說，媽媽去排配給。你把工作證留在枕頭下。它很輕，你從來沒發現它這麼輕。',btn:'走進市心站',go:ivyTunnel});}
+  else if(k===1){chapterScreen({eye:'週三',big:'隧道',prose:'你跟 Nina 說，媽媽去排配給。手腕上的工作證拿不下來，它會一路把你的心跳傳上去。你出門前深呼吸了三次。',btn:'走進市心站',go:ivyTunnel});}
   else{add(1);await narr('一個月 300 點。三個月，900 點。三個月不買任何東西，只吃配給。');await narr('你把自己的未來，換成 Nina 的順位。你覺得很划算。');await narr('課程的第一堂叫做：「如何成為一個好用的人」。');finishIvy('nina');}
 }
 
@@ -2553,7 +2644,9 @@ async function ivyTunnel(){
   newRun(true);S.lumi=true;S.lumiForm='alien';
   loadMap(TUNNEL,4*T+8,1*T+12,'down');show('s-game');busy=true;await wait(300);
   await narr('市心站。你以前每天在這裡等車。月台盡頭的鐵門，沒有鎖。');
-  setGoal('往隧道深處走，直到沒有訊號',['chef']);busy=false;
+  await narr('手腕上的工作證拿不下來。它會一路把你的心跳傳上去。心跳太快，它就會問你怎麼了。');
+  await narr('慢慢走。快了就停下來。假裝你只是一個睡不著、出來散步的人。');
+  F.bpm=82;setGoal('慢慢往隧道深處走（心跳不要太快）',['hatch']);busy=false;
 }
 function buildTunnelIvy(){
   objs=objs.filter(o=>!['ivyT'].includes(o.id));
@@ -2566,7 +2659,8 @@ function buildTunnelIvy(){
 }
 async function actPledgeIvy(){
   if(!F.chef){await narr('桌上有幾張紙跟一支短短的鉛筆。先跟包紙條的那個人說說話。');return;}
-  if(F.pledge!=null)return;this.mark=false;
+  if(F.pledge!=null)return;
+  if(!F.meet){if((F.off||0)+18>offLimit()){await timeUp();return;}await meeting();F.meet=true;await offCost(18,true);}this.mark=false;
   await narr('紙上已經寫了好幾個名字。外送員那一行寫著：「R-3。我來翻。」');
   const k=await ask(null,'鉛筆很短，削得很尖。',['寫下：「我在合成廠。紙條我來包。」','寫下：「我只是來看看。」']);
   F.pledge=k;
@@ -2578,7 +2672,7 @@ function finishIvy(id){
   const E={wait:['計算中','你把預約頁面關掉。明天晚上，你會再打開一次。後天也是。那三個字從來沒有變過，因為它本來就不是會變的東西。'],
     nina:['可用性','你把三個月的工作點數，全部換成 Nina 的可用性加分課程。課程的第一堂叫做：「如何成為一個好用的人」。你以為在幫她排到前面，其實是讓她更好用。'],
     bread:['麵包','你在紙上寫下：「我在合成廠。紙條我來包。」從那天起，你包的每一箱合成餐裡，都有一個麵包，比其他的硬一點點。'],
-    look:['隧道裡的人','你走進沒有訊號的隧道。你沒有寫下任務，但你遇見了那個想去看海的外送員。你知道了：這裡還有人。']}[id];
+    look:['隧道裡的人','你走到沒有訊號的地底。你沒有寫下任務，但你遇見了那個想去看海的外送員。你知道了：這裡還有人。']}[id];
   showEnd({eye:'Ivy 的故事　完',title:E[0],sum:E[1],
     ticket:{head:'第一代火星移民｜預約單',rows:[['預約人','Ivy'],['順位','No. 3,417,902','tk-no'],['預計出發時間','計算中'],['工作等級','E 級｜包裝']],fine:'＊名額依序開放，順序由系統評估決定。'},
     next:id==='wait'||id==='nina'?'<div class="eyebrow">你知道嗎</div><p class="prose" style="margin:4px 0 0">你的順位，是在一年前的某個凌晨被改掉的。玩科學家 Noor 的故事，看是誰改的。</p>':'<div class="eyebrow">隧道裡的另一個人</div><p class="prose" style="margin:4px 0 0">那個外送員寫的是：「R-3。我來翻。」玩 Leo 的故事，看他翻開了什麼。</p>'});
