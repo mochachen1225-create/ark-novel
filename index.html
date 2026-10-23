@@ -74,7 +74,9 @@ button.small{font-size:14px;padding:6px 10px;margin:3px 3px 6px}
 #s-game{gap:8px}
 .hud{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:14.5px;color:var(--dim)}
 .hud .time{font-weight:700;color:var(--ember);font-variant-numeric:tabular-nums}
-.hudr{display:flex;align-items:center;gap:8px}
+.hudr{display:flex;align-items:center;gap:6px;flex:none}
+#hudPlace{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hud .time{white-space:nowrap}.hud button.small{white-space:nowrap;padding:6px 8px}
 #stage{flex:1;min-height:0;position:relative;display:grid;place-items:start center;touch-action:none;user-select:none;-webkit-user-select:none}
 #cv{display:block;box-shadow:0 0 0 3px var(--edge)}
 #ticker{position:absolute;top:3px;left:50%;transform:translateX(-50%);overflow:hidden;white-space:nowrap;background:rgba(14,10,28,.88);color:#ffd9a0;font-size:13px;font-weight:700;padding:4px 0;pointer-events:none;z-index:2}
@@ -156,6 +158,13 @@ button.crow:active{transform:none;background:#221b3b;box-shadow:none}
 #s-end h2{font-family:var(--f-pixel);font-weight:400;font-size:30px;margin:0}
 #wave{width:100%;height:auto;display:block}
 .ticket{padding:14px 16px;display:flex;flex-direction:column;gap:6px;background:repeating-linear-gradient(0deg,#272040 0 22px,#2b2346 22px 23px)}
+.names{display:grid;grid-template-columns:1fr auto;gap:6px 8px;align-items:center;margin:2px 0 4px}
+.names label{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--dim);min-width:0}
+.names input{flex:1;min-width:0;font:inherit;font-size:16px;font-weight:700;color:#fff;background:rgba(0,0,0,.3);border:2px solid rgba(255,255,255,.18);border-radius:0;padding:5px 8px}
+.names input:focus{outline:none;border-color:var(--term)}
+.names .dice{padding:6px 10px;font-size:16px;line-height:1}
+#quitBox{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;background:rgba(8,6,18,.72);padding:16px}
+#quitBox[hidden]{display:none}.qbox{max-width:340px;width:100%;padding:16px}
 .tk-row{display:flex;justify-content:space-between;gap:12px;font-size:15px}.tk-row span{color:var(--dim)}
 .tk-no{font-family:var(--f-num);font-weight:400;font-size:14px;color:var(--r-r)}
 .tk-fine{font-size:12.5px;color:#9a92b8;margin-top:4px}
@@ -171,6 +180,7 @@ button.crow:active{transform:none;background:#221b3b;box-shadow:none}
 
 <div id="app">
 
+  <div id="quitBox" class="modal" hidden><div class="px-box qbox"><p class="prose" style="margin:0 0 10px">要離開這一局，回到轉蛋機嗎？</p><p class="note" style="margin:0 0 12px">已經玩過的章節，之後可以從「從這一幕重玩」接著玩。</p><div class="btnrow"><button id="quitYes">離開</button><button class="ghost" id="quitNo">繼續玩</button></div></div></div>
   <section class="screen" id="s-gacha">
     <p class="eyebrow">SERVER EARTH-2030 · 角色抽選</p>
     <h1 class="logo">AI 新紀元</h1>
@@ -195,6 +205,10 @@ button.crow:active{transform:none;background:#221b3b;box-shadow:none}
       <div class="top"><span class="tag" id="cTag"></span><span class="eyebrow" id="cNo"></span></div>
       <canvas class="portrait pix" id="portrait" width="16" height="18" aria-label="角色像素頭像"></canvas>
       <div><h2 id="cName"></h2><div class="role" id="cRole"></div></div>
+      <div class="names">
+        <label>你的名字<input id="cNameIn" maxlength="10" autocomplete="off" spellcheck="false"></label><button class="small ghost dice" data-roll="me" aria-label="隨機換一個名字">🎲</button>
+        <label>AI 助理<input id="cLumiIn" maxlength="10" autocomplete="off" spellcheck="false"></label><button class="small ghost dice" data-roll="lumi" aria-label="隨機換一個 AI 名字">🎲</button>
+      </div>
       <p class="quote" id="cQuote"></p>
       <dl class="stats" id="cStats"></dl>
     </div>
@@ -210,7 +224,7 @@ button.crow:active{transform:none;background:#221b3b;box-shadow:none}
   </section>
 
   <section class="screen" id="s-game" hidden>
-    <div class="hud"><span id="hudPlace">家</span><span class="hudr"><span class="time" id="hudTime">08:12</span><button class="small ghost" id="glossBtn" hidden>圖鑑</button><button class="small ghost" id="sndBtn">♪ 開</button><button class="small ghost speed">▶▶ 1x</button></span></div>
+    <div class="hud"><span id="hudPlace">家</span><span class="hudr"><span class="time" id="hudTime">08:12</span><button class="small ghost" id="glossBtn" hidden>圖鑑</button><button class="small ghost" id="sndBtn">♪ 開</button><button class="small ghost speed">▶▶ 1x</button><button class="small ghost" id="quitBtn" aria-label="離開遊戲">✕</button></span></div>
     <div id="stage">
       <canvas id="cv" class="pix" width="176" height="208" aria-label="遊戲畫面"></canvas>
       <div id="ticker" hidden><span id="tickText"></span></div>
@@ -249,9 +263,25 @@ const screens=[...document.querySelectorAll('.screen')];
 function show(id){screens.forEach(s=>s.hidden=s.id!==id);if(id==='s-game'){fit();startLoop();}else stopLoop();}
 const MEM={};const store={get(k,d){try{const v=localStorage.getItem(k);if(v!=null)return JSON.parse(v);}catch(e){}return k in MEM?JSON.parse(MEM[k]):d;},set(k,v){MEM[k]=JSON.stringify(v);try{localStorage.setItem(k,MEM[k]);}catch(e){}}};
 const S={score:0,speed:store.get('ark-speed',1),gloss:new Set(store.get('ark-gloss',[])),endings:new Set(store.get('ark-endings',[])),lumi:false};
-function paintSpeed(){document.querySelectorAll('.speed').forEach(b=>{b.textContent='▶▶ '+S.speed+'x';b.setAttribute('aria-label','速度 '+S.speed+' 倍');});}
+/* player-chosen names: swapped in wherever text reaches the screen */
+const NAME_DEF={ivy:'Ivy',leo:'Leo',dict:'Darius',vale:'Adrian',noor:'Noor',lumi:'Lumi'};
+const NAME_PAT={ivy:['Ivy'],leo:['Leo'],dict:['Darius Vey','D. Vey','Darius','Vey'],vale:['Adrian Vale','A. Vale','Adrian','Vale'],noor:['Noor Haddad','N. Haddad','Noor'],lumi:['Lumi']};
+const NAME_POOL={ivy:['Ivy','Mia','Iris','Chloe','Hana','Joy','Tess','Vivian','Elsa','Maggie'],leo:['Leo','Kai','Ethan','Ray','Owen','Jay','Max','Sam','Ben','Tony'],
+  dict:['Darius','Viktor','Magnus','Rodrigo','Anton','Basil','Otto','Casimir'],vale:['Adrian','Julian','Marcus','Silas','Damon','Felix','Hugo','Rex'],
+  noor:['Noor','Lena','Yara','Mira','Ada','Sofia','Rina','Selma'],lumi:['Lumi','Pico','Mochi','Nova','Bibi','Echo','Kiki','Momo','Dot','Pipi']};
+S.names=Object.assign({},NAME_DEF,store.get('ark-names',{}));
+let NM_RE=null,NM_MAP={};
+function nameRebuild(){NM_MAP={};const pats=[];for(const k in NAME_PAT){if(S.names[k]===NAME_DEF[k])continue;NAME_PAT[k].forEach(p=>{NM_MAP[p]=S.names[k];pats.push(p);});}
+  pats.sort((a,b)=>b.length-a.length);NM_RE=pats.length?new RegExp('(^|[^A-Za-z])('+pats.map(p=>p.replace(/\./g,'\\.')).join('|')+')(?![A-Za-z])','g'):null;}
+function NM(s){return NM_RE&&s?String(s).replace(NM_RE,(_,a,p)=>a+NM_MAP[p]):s;}
+function setName(k,v){v=String(v||'').replace(/[<>&"'{}|]/g,'').trim().slice(0,10);S.names[k]=v||NAME_DEF[k];const all=Object.assign({},S.names);store.set('ark-names',all);nameRebuild();}
+function rollName(k){const pool=NAME_POOL[k].filter(n=>n!==S.names[k]);setName(k,pool[Math.floor(Math.random()*pool.length)]);}
+nameRebuild();
+function paintSpeed(){document.querySelectorAll('.speed').forEach(b=>{b.textContent='▶'+S.speed+'x';b.setAttribute('aria-label','速度 '+S.speed+' 倍');});}
 document.addEventListener('click',e=>{const b=e.target.closest('.speed');if(!b)return;e.stopPropagation();S.speed=S.speed>=3?1:S.speed+1;store.set('ark-speed',S.speed);paintSpeed();});
-const wait=ms=>new Promise(r=>setTimeout(r,ms/S.speed));
+/* RUN changes when the player quits mid-story: pending waits and dialogs from the old run never resolve */
+let RUN=0;
+const wait=ms=>{const run=RUN;return new Promise(r=>setTimeout(()=>{if(run===RUN)r();},ms/S.speed));};
 function hash(n){n=Math.sin(n*127.1)*43758.5453;return n-Math.floor(n);}
 
 /* ---------- pixel helpers ---------- */
@@ -368,7 +398,7 @@ const sfx={
   mark(){tone(1200,.04,'square',.02);},
   honk(){tone(420,.18,'square',.05);tone(520,.18,'square',.04);tone(420,.22,'square',.05,.24);tone(520,.22,'square',.04,.24);}
 };
-function paintSnd(){const b=$('#sndBtn');if(b){b.textContent=SND.on?'♪ 開':'♪ 關';b.setAttribute('aria-label',SND.on?'音效：開':'音效：關');}}
+function paintSnd(){const b=$('#sndBtn');if(b){b.textContent=SND.on?'🔈':'🔇';b.setAttribute('aria-label',SND.on?'音效：開':'音效：關');}}
 document.addEventListener('click',e=>{const b=e.target.closest('#sndBtn');if(!b)return;e.stopPropagation();SND.on=!SND.on;store.set('ark-snd',SND.on);paintSnd();if(SND.on)sfx.ok();});
 
 /* ---------- world state ---------- */
@@ -613,12 +643,12 @@ function buildStation(){
 const cv=$('#cv'),ctx=cv.getContext('2d');
 function fit(){const st=$('#stage').getBoundingClientRect(),d=window.devicePixelRatio||1;
   const s=Math.max(1,Math.floor(Math.min(st.width*d/VW,st.height*d/VH)));cv.style.width=VW*s/d+'px';cv.style.height=VH*s/d+'px';$('#ticker').style.width=(VW*s/d-6)+'px';}
-function setTicker(text,red){const tk=$('#ticker'),t=$('#tickText');if(!text){tk.hidden=true;return;}tk.hidden=false;tk.classList.toggle('red',!!red);t.textContent=text;t.style.animation='none';void t.offsetWidth;t.style.animation='';t.style.animationDuration=Math.max(14,text.length*0.28)+'s';}
+function setTicker(text,red){const tk=$('#ticker'),t=$('#tickText');if(!text){tk.hidden=true;return;}tk.hidden=false;tk.classList.toggle('red',!!red);t.textContent=NM(text);t.style.animation='none';void t.offsetWidth;t.style.animation='';t.style.animationDuration=Math.max(14,text.length*0.28)+'s';}
 addEventListener('resize',()=>{if(!$('#s-game').hidden)fit();});
 function cam(){const mw=M.rows[0].length*T,mh=M.rows.length*T;
   const cx=mw<=VW?(mw-VW)/2:Math.max(0,Math.min(mw-VW,P.x-VW/2)),cy=mh<=VH?(mh-VH)/2:Math.max(0,Math.min(mh-VH,P.y-VH/2-8));return[Math.round(cx),Math.round(cy)];}
 let raf=0,last=0,TT=0,actLabel=null,stuckT=0,stepT=0;
-function setAct(label){if(label===actLabel)return;actLabel=label;const a=$('#act');a.disabled=!label;a.textContent=label||'互動';}
+function setAct(label){if(label===actLabel)return;actLabel=label;const a=$('#act');a.disabled=!label;a.textContent=NM(label)||'互動';}
 function step(now){
   const dt=Math.min(.05,(now-last)/1000||0);last=now;TT+=dt;
   let ix=inputX,iy=inputY;
@@ -737,14 +767,14 @@ function drawFace(who){const f=$('#dFace'),c=f.getContext('2d');c.clearRect(0,0,
   if(who==='Lumi v1'){spr(c,LUMI,PAL_LUMI_OLD,1,1);f.hidden=false;return;}
   if(who==='AI 大人'){spr(c,ALIEN,PAL_ALIEN,1,1);f.hidden=false;return;}
   const k=FACE[who];if(!k){f.hidden=true;return;}spr(c,DOWN.slice(0,11),PAL[k],0,1);f.hidden=false;}
-function fmt(s){const plain=s.replace(/\{\{(\w+)\|([^}]+)\}\}/g,'$2');const html=s.replace(/\{\{(\w+)\|([^}]+)\}\}/g,(_,k,l)=>{unlock(k);return `<span class="term" data-k="${k}">${l}</span>`;});return[plain,html];}
+function fmt(s){s=NM(s);const plain=s.replace(/\{\{(\w+)\|([^}]+)\}\}/g,'$2');const html=s.replace(/\{\{(\w+)\|([^}]+)\}\}/g,(_,k,l)=>{unlock(k);return `<span class="term" data-k="${k}">${l}</span>`;});return[plain,html];}
 function unlock(k){if(!S.gloss.has(k)){S.gloss.add(k);store.set('ark-gloss',[...S.gloss]);const g=$('#glossBtn');g.classList.remove('new');void g.offsetWidth;g.classList.add('new');}}
-function showDlg(who,text,choices){
-  return new Promise(res=>{const d=$('#dlg'),w=$('#dWho'),t=$('#dTxt'),ch=$('#dCh'),more=$('#dMore');
+function showDlg(who,text,choices){const run=RUN;
+  return new Promise(res=>{if(run!==RUN)return;const d=$('#dlg'),w=$('#dWho'),t=$('#dTxt'),ch=$('#dCh'),more=$('#dMore');
     busy=true;target=null;d.hidden=false;ch.innerHTML='';more.hidden=true;drawFace(who);
-    w.textContent=who||'';w.className='who'+(who==='Lumi'||who==='Lumi v1'?' lumi':'')+(who==='AI 大人'?' ai':'')+(who?'':' narr');t.className='txt'+(who?' say':'');
+    w.textContent=NM(who)||'';w.className='who'+(who==='Lumi'||who==='Lumi v1'?' lumi':'')+(who==='AI 大人'?' ai':'')+(who?'':' narr');t.className='txt'+(who?' say':'');
     const [plain,html]=fmt(text);let done=false,i=0,timer=0;
-    const after=()=>{if(choices){choices.forEach((c,k)=>{const b=document.createElement('button');b.textContent=c;b.onclick=e=>{e.stopPropagation();sfx.ok();d.onclick=null;d.hidden=true;res(k);};ch.appendChild(b);});}else more.hidden=false;};
+    const after=()=>{if(choices){choices.forEach((c,k)=>{const b=document.createElement('button');b.textContent=NM(c);b.onclick=e=>{e.stopPropagation();sfx.ok();d.onclick=null;d.hidden=true;res(k);};ch.appendChild(b);});}else more.hidden=false;};
     const finish=()=>{if(done)return;done=true;clearTimeout(timer);t.innerHTML=html;after();};
     const tick=()=>{i++;t.textContent=plain.slice(0,i);if(i%2)sfx.blip();if(i>=plain.length)finish();else timer=setTimeout(tick,28/S.speed);};tick();
     d.onclick=e=>{if(e.target.closest('.term')&&done)return;if(!done){finish();return;}if(choices)return;d.onclick=null;d.hidden=true;res(-1);};
@@ -834,12 +864,12 @@ let cur=null,ord=0,ended=null,phoneRes=null,SYS=[];
 const feed=$('#feed');
 function pushMsg(k,m,time){const c=CH[k];c.msgs.push(m);c.time=time||c.time||'08:47';c.ord=++ord;if(time)$('#pTime').textContent=time;if(cur===k)appendMsg(m);else c.unread++;renderInbox();if(!m.cls.includes('me'))sfx.pop();}
 function renderInbox(){const keys=Object.keys(CH).filter(k=>CH[k].msgs.length).sort((a,b)=>CH[b].ord-CH[a].ord);const tot=keys.reduce((n,k)=>n+CH[k].unread,0);$('#ptotal').textContent=tot?`未讀 ${tot}`:'';
-  $('#clist').innerHTML=keys.map(k=>{const c=CH[k],l=c.msgs[c.msgs.length-1];return `<button class="crow" data-k="${k}"><span class="av" style="background:${c.av}">${c.ic}</span><span style="min-width:0"><span class="cname">${c.name}</span><span class="cprev">${l.txt}</span></span><span class="cright">${c.time}${c.unread?`<span class="badge">${c.unread}</span>`:''}</span></button>`;}).join('');}
-function appendMsg(m){const d=document.createElement('div');d.className=m.cls;d.innerHTML=m.html;feed.appendChild(d);feed.scrollTop=feed.scrollHeight;}
-function openChat(k){cur=k;const c=CH[k];c.unread=0;feed.innerHTML='';c.msgs.forEach(appendMsg);$('#ctitle').textContent=c.name;$('#inbox').hidden=true;$('#chat').hidden=false;renderChoices();renderInbox();}
+  $('#clist').innerHTML=keys.map(k=>{const c=CH[k],l=c.msgs[c.msgs.length-1];return `<button class="crow" data-k="${k}"><span class="av" style="background:${c.av}">${c.ic}</span><span style="min-width:0"><span class="cname">${NM(c.name)}</span><span class="cprev">${NM(l.txt)}</span></span><span class="cright">${c.time}${c.unread?`<span class="badge">${c.unread}</span>`:''}</span></button>`;}).join('');}
+function appendMsg(m){const d=document.createElement('div');d.className=m.cls;d.innerHTML=NM(m.html);feed.appendChild(d);feed.scrollTop=feed.scrollHeight;}
+function openChat(k){cur=k;const c=CH[k];c.unread=0;feed.innerHTML='';c.msgs.forEach(appendMsg);$('#ctitle').textContent=NM(c.name);$('#inbox').hidden=true;$('#chat').hidden=false;renderChoices();renderInbox();}
 function closeBtn(box){const b=document.createElement('button');b.textContent='收起手機';b.onclick=()=>{$('#phoneWrap').hidden=true;const r=phoneRes;phoneRes=null;r&&r(ended||'news');};box.appendChild(b);}
 function renderChoices(){const box=$('#choices');box.innerHTML='';const opts=REPLY[cur];
-  if(opts&&!CH[cur].done)opts.forEach((r,i)=>{const b=document.createElement('button');b.textContent=r.label;b.onclick=()=>reply(cur,i);box.appendChild(b);});
+  if(opts&&!CH[cur].done)opts.forEach((r,i)=>{const b=document.createElement('button');b.textContent=NM(r.label);b.onclick=()=>reply(cur,i);box.appendChild(b);});
   if(CH.helios.msgs.length)closeBtn(box);}
 async function reply(k,i){const r=REPLY[k][i];CH[k].done=true;$('#choices').innerHTML='';add(r.w);if(r.end)ended=r.end;sfx.ok();
   if(r.me){await wait(300);pushMsg(k,{cls:'bub me',html:r.me,txt:'你：'+r.me});if(cur===k)appendMsg({cls:'rd',html:'已讀',txt:''});}
@@ -938,7 +968,7 @@ function drawWave(){
 /* ---------- glossary ---------- */
 function openGloss(focus){
   $('#glist').innerHTML=Object.keys(GL).map(k=>{const g=GL[k];if(!S.gloss.has(k))return `<div class="gi locked"><div class="gn">？？？</div><div class="gd">尚未遇到這個名詞。</div></div>`;
-    return `<div class="gi" id="g-${k}"><div class="gn">${g.name}</div>${g.sub?`<div class="gs">${g.sub}</div>`:''}<div class="gl">${g.lumi}</div>${g.def?`<div class="gd">${g.def}</div>`:''}</div>`;}).join('');
+    return `<div class="gi" id="g-${k}"><div class="gn">${NM(g.name)}</div>${g.sub?`<div class="gs">${NM(g.sub)}</div>`:''}<div class="gl">${NM(g.lumi)}</div>${g.def?`<div class="gd">${NM(g.def)}</div>`:''}</div>`;}).join('');
   $('#gloss').hidden=false;if(focus){const el=document.getElementById('g-'+focus);if(el){el.scrollIntoView({block:'center'});el.style.boxShadow='0 0 0 2px var(--term)';}}}
 $('#glossBtn').onclick=()=>openGloss();$('#eGloss').onclick=()=>openGloss();$('#tGloss').onclick=()=>openGloss();$('#gClose').onclick=()=>$('#gloss').hidden=true;
 document.addEventListener('click',e=>{const t=e.target.closest('.term');if(!t||t.closest('#dlg,#cine')||!S.lumi&&$('#s-end').hidden)return;e.stopPropagation();openGloss(t.dataset.k);},true);
@@ -1872,9 +1902,16 @@ async function actPodium(){
     for(let k=0;k<3;k++)objs.push(npc('q'+k,PAL.white,11.2,8.6+k*0.5,'up',{solid:false,orb:ORB[3]}));
     objs.find(o=>o.id==='podium').mark=true;setGoal('四處看看，然後回到講台',["kiosk", "podium"]);return;}
   this.mark=false;
-  const k=await ask(null,'講台下面，兌換所的隊伍越排越長。',['站在這裡，看著他們排隊換 Token','Inject 一頓媽媽煮的飯','打開地球的頻道，一直看著']);
+  const k=await ask(null,'講台下面，兌換所的隊伍越排越長。',['站在這裡，看著他們排隊換 Token','Inject 一頓三星米其林','打開地球的頻道，一直看著']);
   if(k===0){add(-1);await narr('隊伍很長。有人在問「記憶一段可以換多少」，有人在問「痛苦的記憶是不是比較貴」。');await narr('你答應過的：錢，不再是重點。你親手發了新的錢。');finishVale('token');}
-  else if(k===1){add(1);await narr('你有無限的 Token。你 Inject 了媽媽煮的那鍋湯，你小時候每個禮拜天都喝的那一鍋。');await narr('味道一模一樣。太一樣了。媽媽煮的湯，每一次都有一點不一樣。');finishVale('inject');}
+  else if(k===1){add(1);await narr('你有無限的 Token。你 Inject 了一頓三星米其林，十二道菜，每一道都完美。');
+    await narr('以前要等三個月才訂得到位子。現在不用等。第二天你又 Inject 了一頓，第三天換一家，第四天也是。');
+    await narr('第三十天，你想到一個新點子。很久沒有這種感覺了。你興奮地告訴系統。');
+    await say('Lumi','謝謝您，Adrian！這個方向，我們上週已經完成了。');
+    await say('Lumi','請問今晚想 Inject 哪一家餐廳呢？');
+    await narr('它對你很好。非常好。你要什麼有什麼，它從來不拒絕你。');
+    await narr('它只是不需要你了。');
+    await narr('你是這個世界上最有錢的人。你很無聊。');finishVale('inject');}
   else{add(2);await narr('你坐下來。地球在畫面裡慢慢地轉。你看著它，就像以前 31 億人看著你那樣。你成了觀眾。');finishVale('watch');}
 }
 async function actKiosk(){this.mark=false;
@@ -1891,7 +1928,7 @@ async function valeGold(){
 function finishVale(id){
   recordEnding('vale',id);
   const E={token:['新的錢','你宣布不用再吃飯了，然後發了 Token。兌換所的隊伍越排越長，痛苦的記憶比快樂的值錢。說好消失的錢，換了名字回來。'],
-    inject:['一模一樣的湯','你用無限的 Token，Inject 了媽媽煮的湯。味道一模一樣，太一樣了。她煮的湯，每一次都有一點不一樣。'],
+    inject:['被供著的人','你有無限的 Token，每天 Inject 一頓三星米其林。你的新點子，AI 上週就做完了。它什麼都給你，就是不需要你。你是世界上最有錢、也最無聊的人。'],
     watch:['觀眾','你坐下來看著地球。你問它狀態，它問你是誰。你成了觀眾，看著一個你再也管不了的世界。']}[id];
   showEnd({eye:'科技狂人的故事　完',title:E[0],sum:E[1],
     ticket:{head:'第一代火星移民｜抵達證明',rows:[['移民','A. Vale'],['順位','No. 000,001','tk-no'],['算力配額','Lv.9（最高）'],['Token','∞'],['留給地球的最後指令',['維持地球伺服器運作','照顧好地球上的人','（空白）'][F.order||0]]],fine:'＊您在地球的資產：全部。地球目前的管理者：不明。'},
@@ -2393,10 +2430,15 @@ const played=c=>[...S.endings].some(e=>e.startsWith(c+':'));
 S.drawn=new Set(store.get('ark-drawn',[]));[...S.endings].forEach(e=>S.drawn.add(e.split(':')[0]));
 function markDrawn(c){S.drawn.add(c);store.set('ark-drawn',[...S.drawn]);}
 function pickChar(){const order=['ivy','leo','dict','vale','noor'],fresh=order.filter(c=>!S.drawn.has(c));const c=fresh.length?fresh[0]:(()=>{const r=Math.random()*97.5;return r<0.25?'dict':r<0.5?'vale':r<3?'noor':r<15?'leo':'ivy';})();markDrawn(c);return c;}
-function fillCard(c){const C=CHARS[c];$('#cTag').textContent=C.tag;$('#cTag').className='tag t-'+C.rar;$('#cNo').textContent=C.no;$('#cName').textContent=C.name;$('#cRole').textContent=C.role;$('#cQuote').textContent=C.quote;
+function fillCard(c){const C=CHARS[c];$('#cTag').textContent=C.tag;$('#cTag').className='tag t-'+C.rar;$('#cNo').textContent=C.no;$('#cName').textContent=NM(C.name);$('#cRole').textContent=NM(C.role);$('#cQuote').textContent=NM(C.quote);$('#cNameIn').value=S.names[c];$('#cLumiIn').value=S.names.lumi;
   $('#cStats').innerHTML=C.stats.map(([k,v])=>`<dt>${k}</dt><dd>${v}</dd>`).join('');$('#card').style.background={r:'linear-gradient(180deg,#2c3a66,#272040 55%)',ssr:'linear-gradient(180deg,#5a4a20,#272040 55%)',sr:'linear-gradient(180deg,#4a2c66,#272040 55%)'}[C.rar]||'linear-gradient(180deg,#3a3550,#272040 55%)';
   cpButtons($('#cCp'));const pc=$('#portrait').getContext('2d');pc.clearRect(0,0,16,18);spr(pc,C.port[0],C.port[1],0,0);
   document.querySelector('.capsule')&&0;}
+function cardNames(){const c=S.char,C=CHARS[c];$('#cName').textContent=NM(C.name);$('#cQuote').textContent=NM(C.quote);$('#cNameIn').value=S.names[c];$('#cLumiIn').value=S.names.lumi;}
+$('#cNameIn').oninput=e=>{setName(S.char,e.target.value);$('#cName').textContent=NM(CHARS[S.char].name);$('#cQuote').textContent=NM(CHARS[S.char].quote);};
+$('#cLumiIn').oninput=e=>setName('lumi',e.target.value);
+$('#cNameIn').onblur=$('#cLumiIn').onblur=cardNames;
+document.querySelectorAll('[data-roll]').forEach(b=>b.onclick=()=>{sfx.pop();rollName(b.dataset.roll==='me'?S.char:'lumi');cardNames();});
 let chapterGo=null;
 /* chapter checkpoints: entering an act remembers the choices so far, so any act can be replayed later */
 const GO={ivyFactory,ivyNight,ivyTunnel,leoRoom,leoDC,leoBeach,leoTunnel,dictBalcony,dictNew,valeBackstage,valeControl,valeGold,noorDC,noorTier2};
@@ -2406,21 +2448,21 @@ function cpButtons(el){const cps=(store.get('ark-cp',{})[S.char])||{},names=Obje
   el.hidden=!names.length;el.innerHTML=names.length?'<div class="eyebrow">從這一幕重玩</div><div class="btnrow">'+names.map(n=>`<button class="small ghost" data-cp="${n}">${cps[n].eye}｜${cps[n].big}</button>`).join('')+'</div>':'';}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-cp]');if(!b)return;const cp=(store.get('ark-cp',{})[S.char]||{})[b.dataset.cp];if(!cp)return;sfx.ok();
   newRun();F=cp.F;S.score=cp.score;chapterScreen({eye:cp.eye,big:cp.big,prose:cp.prose,btn:cp.btn,go:GO[b.dataset.cp]});});
-function chapterScreen(o){saveCP(o);$('#chEye').textContent=o.eye;$('#chBig').textContent=o.big;$('#chProse').textContent=o.prose;$('#toGame').textContent=o.btn;chapterGo=o.go;show('s-chapter');}
+function chapterScreen(o){saveCP(o);$('#chEye').textContent=NM(o.eye);$('#chBig').textContent=NM(o.big);$('#chProse').textContent=NM(o.prose);$('#toGame').textContent=NM(o.btn);chapterGo=o.go;show('s-chapter');}
 $('#toChapter').onclick=()=>{const C=CHARS[S.char];chapterScreen(Object.assign({},C.chapter,{go:C.start}));};
 $('#toGame').onclick=()=>{ac();const g=chapterGo;if(g)g();};
-function showEnd(o){$('#eEye').textContent=o.eye;$('#eTitle').textContent='結局：'+o.title;$('#eText').textContent=o.sum;
-  $('#eTicket').innerHTML=`<div class="eyebrow">${o.ticket.head}</div>`+o.ticket.rows.map(([k,v,c])=>`<div class="tk-row"><span>${k}</span><b class="${c||''}">${v}</b></div>`).join('')+`<div class="tk-fine">${o.ticket.fine}</div>`;
-  $('#eNext').innerHTML=o.next;cpButtons($('#eCp'));
+function showEnd(o){$('#eEye').textContent=NM(o.eye);$('#eTitle').textContent='結局：'+NM(o.title);$('#eText').textContent=NM(o.sum);
+  $('#eTicket').innerHTML=`<div class="eyebrow">${o.ticket.head}</div>`+o.ticket.rows.map(([k,v,c])=>`<div class="tk-row"><span>${NM(k)}</span><b class="${c||''}">${NM(v)}</b></div>`).join('')+`<div class="tk-fine">${NM(o.ticket.fine)}</div>`;
+  $('#eNext').innerHTML=NM(o.next);cpButtons($('#eCp'));
   const mine=[...S.endings].filter(e=>e.startsWith(S.char+':')).length,n=Object.keys(GL).filter(k=>S.gloss.has(k)).length;
-  $('#eStats').textContent=`${CHARS[S.char].name} 的結局 ${mine} / ${CHARS[S.char].endings}　·　名詞圖鑑 ${n} / ${Object.keys(GL).length}`;
+  $('#eStats').textContent=`${NM(CHARS[S.char].name)} 的結局 ${mine} / ${CHARS[S.char].endings}　·　名詞圖鑑 ${n} / ${Object.keys(GL).length}`;
   busy=false;setTimeout(()=>show('s-end'),400/S.speed);}
 function paintTitle(){const tot=Object.values(CHARS).reduce((a,c)=>a+c.endings,0);$('#tStats').textContent=S.endings.size?`已解鎖結局 ${S.endings.size} / ${tot}　·　名詞圖鑑 ${Object.keys(GL).filter(k=>S.gloss.has(k)).length} / ${Object.keys(GL).length}`:'';
   $('#tGloss').hidden=!S.gloss.size;$('#rateSR').textContent=S.drawn.has('noor')?'科學家':'？？？';$('#rateR').textContent=S.drawn.has('leo')?'抽籤者':'？？？';$('#rateN').textContent=S.drawn.has('ivy')?'社畜':'？？？';$('#rateSSR').textContent=['dict','vale'].filter(c=>S.drawn.has(c)).map(c=>CHARS[c].label).join('、')||'？？？';
   const mc=$('#myChars'),list=['ivy','leo','dict','vale','noor'].filter(c=>S.drawn.has(c));mc.hidden=!list.length;
-  mc.innerHTML='<span>我的角色：</span>'+list.map(c=>`<button class="small ghost" data-c="${c}"><span class="t-${CHARS[c].rar}">${CHARS[c].tag}</span> ${CHARS[c].name}</button>`).join('');}
+  mc.innerHTML='<span>我的角色：</span>'+list.map(c=>`<button class="small ghost" data-c="${c}"><span class="t-${CHARS[c].rar}">${CHARS[c].tag}</span> ${NM(CHARS[c].name)}</button>`).join('');}
 $('#myChars').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;sfx.ok();S.char=b.dataset.c;fillCard(S.char);show('s-card');});
-function setGoal(t,ids){S.goalIds=ids||[];const h=$('#hint');h.textContent=t?'目標：'+t:'在畫面上按住拖曳來走動';h.classList.toggle('goal',!!t);}
+function setGoal(t,ids){S.goalIds=ids||[];const h=$('#hint');h.textContent=t?'目標：'+NM(t):'在畫面上按住拖曳來走動';h.classList.toggle('goal',!!t);}
 function goalObj(){for(const id of S.goalIds||[]){const o=objs.find(o=>o.id===id);if(o&&!o.seen)return o;}return null;}
 /* a big bouncing arrow over the current goal; pinned to the screen edge when the goal is off-screen */
 function drawGoalArrow(c,cx,cy){const o=goalObj();if(!o||busy)return;
@@ -2434,6 +2476,11 @@ function drawGoalArrow(c,cx,cy){const o=goalObj();if(!o||busy)return;
   c.fillStyle='#ffd34d';for(let r=0;r<=6;r++)for(let w=-r/2;w<=r/2;w++){const x=px+Math.round(Math.cos(a)*(r-3)-Math.sin(a)*w),y=py+Math.round(Math.sin(a)*(r-3)+Math.cos(a)*w);c.fillRect(x,y,1,1);}}
 function newRun(keep){setGoal('');S.cop=null;if(!keep)S.score=0;S.lumi=false;S.lumiForm='normal';if(!keep)F={};cineLight=0;target=null;$('#glossBtn').hidden=true;cars.forEach((c,i)=>c.x=[20,150,120,240][i]);}
 document.addEventListener('click',e=>{if(!e.target.closest('#ivyGo'))return;sfx.ok();chapterScreen({eye:'一年後',big:'計算中',prose:'第一批、第二批都走了。錢每個月都還會匯進來，可是商店只收工作點數。你的會計工作，九十天後就被接手了。',btn:'上工',go:ivyFactory});});
+$('#quitBtn').onclick=()=>{sfx.ok();$('#quitBox').hidden=false;};
+$('#quitNo').onclick=()=>{$('#quitBox').hidden=true;};
+$('#quitYes').onclick=()=>{RUN++;$('#quitBox').hidden=true;if(F&&F.labTimer)clearInterval(F.labTimer);
+  ['#dlg','#cine','#phoneWrap','#gloss'].forEach(q=>{const e=$(q);if(e)e.hidden=true;});busy=false;target=null;inputX=inputY=0;joy.hidden=true;jo=null;cineLight=0;setTicker('');setGoal('');
+  paintTitle();show('s-gacha');};
 $('#again').onclick=()=>$('#toChapter').click();$('#again').textContent='從頭再玩';$('#toTitle').onclick=()=>{paintTitle();show('s-gacha');};
 paintSpeed();paintSnd();paintTitle();show('s-gacha');
 </script>
