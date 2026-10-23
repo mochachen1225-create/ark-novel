@@ -2084,7 +2084,7 @@ async function actPodium(){
     objs.push(obj({id:'kiosk',x:10*T,y:7*T,w:2*T,h:T,solid:true,label:'看 Token 兌換所',mark:true,ix(){return this.x+T;},iy(){return this.y+T+6;},
       draw(c,t){const x=this.x,y=this.y;R(c,x,y-14,32,30,'#ffd34d');R(c,x+2,y-12,28,12,'#2a2230');R(c,x+5,y-9,10,2,'#ffd34d');R(c,x+5,y-5,18,1,'#c9cbd8');R(c,x+2,y+4,28,10,'#fff6d8');},act:actKiosk}));
     for(let k=0;k<3;k++)objs.push(npc('q'+k,PAL.white,11.2,8.6+k*0.5,'up',{solid:false,orb:ORB[3]}));
-    objs.find(o=>o.id==='podium').mark=true;setGoal('四處看看，然後回到講台',["kiosk", "podium"]);return;}
+    const pd=objs.find(o=>o.id==='podium');pd.mark=true;pd.seen=false;setGoal('四處看看（右下的兌換所），然後回到講台',["kiosk", "podium"]);return;}
   this.mark=false;
   const k=await ask(null,'講台下面，兌換所的隊伍越排越長。',['站在這裡，看著他們排隊換 Token','Inject 一頓三星米其林','打開地球的頻道，一直看著']);
   if(k===0){add(-1);await narr('隊伍很長。有人在問「記憶一段可以換多少」，有人在問「痛苦的記憶是不是比較貴」。');await narr('你答應過的：錢，不再是重點。你親手發了新的錢。');finishVale('token');}
