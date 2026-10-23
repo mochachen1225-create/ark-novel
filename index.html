@@ -2175,9 +2175,9 @@ function drawTile7(c,m,ch,tx,ty,x,y){
   else{R(c,x,y,T,T,'#d8dce4');R(c,x,y,T,1,'#c9cdd8');R(c,x,y,1,T,'#c9cdd8');if(ch==='D')R(c,x+2,y+2,12,12,'#9aa0b0');}
 }
 function buildPlant(){
-  for(const by of [4,8])objs.push(obj({id:'belt'+by,x:T,y:by*T,w:11*T,h:T,solid:true,draw(c,t){const x=this.x,y=this.y;R(c,x,y-2,176,14,'#3a3e4a');R(c,x,y,176,8,'#5a5e6a');
-    for(let k=0;k<12;k++){const bx=x+((k*16+Math.floor(t*12))%176);R(c,bx,y+1,8,5,'#e0d4b0');R(c,bx+1,y+1,6,1,'#c9b890');}for(let k=0;k<11;k++)R(c,x+k*16,y+12,2,4,'#2a2e38');}}));
-  for(const [ax,ay] of [[3,3],[9,7]])objs.push(obj({x:ax*T,y:ay*T+4,w:12,h:8,solid:true,draw(c,t){const x=this.x,y=this.y,a=Math.sin(t*3+ax)*4;R(c,x+2,y,8,10,'#c9cbd8');R(c,x+5,y-8+a,2,10,'#9aa0b8');R(c,x+3,y-10+a,6,3,'#7fe8ff');}}));
+  for(const [by,bx0] of [[4,1],[8,3]])objs.push(obj({id:'belt'+by,x:bx0*T,y:by*T,w:9*T,h:T,solid:true,draw(c,t){const x=this.x,y=this.y,w=this.w;R(c,x,y-2,w,14,'#3a3e4a');R(c,x,y,w,8,'#5a5e6a');
+    for(let k=0;k<9;k++){const bx=x+((k*16+Math.floor(t*12))%w);R(c,bx,y+1,8,5,'#e0d4b0');R(c,bx+1,y+1,6,1,'#c9b890');}for(let k=0;k<9;k++)R(c,x+k*16,y+12,2,4,'#2a2e38');R(c,x-2,y-3,2,16,'#ffd34d');R(c,x+w,y-3,2,16,'#ffd34d');}}));
+  for(const [ax,ay] of [[3,3],[7,7]])objs.push(obj({x:ax*T,y:ay*T+4,w:12,h:8,solid:true,draw(c,t){const x=this.x,y=this.y,a=Math.sin(t*3+ax)*4;R(c,x+2,y,8,10,'#c9cbd8');R(c,x+5,y-8+a,2,10,'#9aa0b8');R(c,x+3,y-10+a,6,3,'#7fe8ff');}}));
   objs.push(obj({id:'screen',x:4*T,y:2,w:5*T,h:26,z:-1,draw(c){const x=this.x,y=this.y;R(c,x,y,80,24,'#1a1e28');R(c,x+3,y+4,30,3,'#7fe8ff');R(c,x+3,y+10,60,2,'#4a5a6a');R(c,x+3,y+15,44,2,'#4a5a6a');R(c,x+60,y+4,16,14,'#2a3a4a');}}));
   const BOX=[{id:'p1',x:2,y:6},{id:'p2',x:6,y:6},{id:'p3',x:10,y:6}];
   BOX.forEach(b=>objs.push(obj({id:b.id,x:b.x*T,y:b.y*T,w:T,h:T-4,solid:true,label:'包裝一箱合成餐',mark:true,ix(){return this.x+8;},iy(){return this.y+T+6;},
